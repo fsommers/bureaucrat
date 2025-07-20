@@ -7,30 +7,81 @@ from gemini_client import GeminiClient
 from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES
 
 @click.command()
-@click.option('--document-type', '-t', required=True,
+@click.option('--document-type', '-t', 
               help='Type of document (e.g., "catering invoice for birthday party", "medical consultation report")')
-@click.option('--entity-fields', '-e', required=True,
+@click.option('--entity-fields', '-e', 
               help='Comma-separated list of entity fields (e.g., "customer name,invoice number,total amount")')
-@click.option('--count', '-c', required=True, type=int,
+@click.option('--count', '-c', type=int,
               help='Number of entity records to generate')
 @click.option('--language', '-l', default='en',
               help=f'Language code for entity generation (default: en). Supported: {", ".join(sorted(LANGUAGE_CODES.keys()))}')
+@click.option('--analysis-json', '-a', type=click.Path(exists=True),
+              help='JSON file from analyze_document.py containing document_type, detected_language, and extracted_entities')
 @click.option('--output-dir', '-o', default=DEFAULT_OUTPUT_DIR,
               help=f'Output directory (default: {DEFAULT_OUTPUT_DIR})')
 @click.option('--output-file', '-f', default='entity_data.json',
               help='Output JSON filename (default: entity_data.json)')
-def generate_entities(document_type, entity_fields, count, language, output_dir, output_file):
+def generate_entities(document_type, entity_fields, count, language, analysis_json, output_dir, output_file):
     """
     Generate synthetic entity data using Google Gemini AI.
     
     This command generates bulk entity data that can later be used to create HTML documents.
     
-    Examples:
+    You can provide parameters manually OR use JSON output from analyze_document.py:
     
-    python generate_entities.py -t "catering invoice for birthday party" -e "customer name,invoice number,total amount" -c 100
+    Manual mode:
+    python generate_entities.py -t "catering invoice" -e "customer name,amount" -c 100
     
-    python generate_entities.py -t "employment contract" -e "company name,employee name,salary" -c 50 -l th -o thai_entities
+    JSON analysis mode:
+    python generate_entities.py -a document_analysis.json -c 50
+    
+    Mixed mode (JSON + manual count):
+    python generate_entities.py -a analysis.json -c 100 -o custom_output
     """
+    
+    # Handle JSON input mode
+    if analysis_json:
+        try:
+            with open(analysis_json, 'r', encoding='utf-8') as f:
+                analysis_data = json.load(f)
+            
+            # Extract data from JSON
+            json_document_type = analysis_data.get('document_type', '')
+            json_language = analysis_data.get('detected_language', 'en')
+            json_entities = analysis_data.get('extracted_entities', {})
+            
+            # Use JSON values if manual parameters not provided
+            if not document_type:
+                document_type = json_document_type
+            if not entity_fields:
+                # Extract entity field names from the analysis
+                entity_fields = ','.join(json_entities.keys()) if json_entities else ''
+            if language == 'en' and json_language:
+                # Only override default language if not explicitly set
+                language = json_language
+                
+            click.echo(f"📄 Loaded analysis from: {analysis_json}")
+            click.echo(f"🔍 JSON Document Type: {json_document_type}")
+            click.echo(f"🌐 JSON Language: {json_language}")
+            click.echo(f"📊 JSON Entities: {list(json_entities.keys())}")
+            click.echo()
+            
+        except Exception as e:
+            click.echo(f"❌ Error reading analysis JSON: {e}")
+            return 1
+    
+    # Validate required parameters
+    if not document_type:
+        click.echo("Error: Document type must be specified (use -t or provide -a with valid JSON)")
+        return 1
+    
+    if not entity_fields:
+        click.echo("Error: Entity fields must be specified (use -e or provide -a with extracted entities)")
+        return 1
+        
+    if not count:
+        click.echo("Error: Count must be specified (use -c)")
+        return 1
     
     # Parse entity fields
     fields = [field.strip() for field in entity_fields.split(',')]

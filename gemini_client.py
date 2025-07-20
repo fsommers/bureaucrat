@@ -2,6 +2,7 @@ import google.generativeai as genai
 import json
 from typing import Dict, List, Any
 from config import GEMINI_API_KEY, LANGUAGE_CODES
+import PIL.Image
 
 class GeminiClient:
     def __init__(self):
@@ -299,3 +300,128 @@ Return ONLY a JSON array with no extra text or formatting:
             html_content = html_content[:-3]  # Remove closing ```
         
         return html_content.strip()
+    
+    def analyze_document_image(self, image_path: str) -> Dict[str, Any]:
+        """
+        Analyze a document image to extract document type and personally identifying information.
+        
+        Args:
+            image_path: Path to the document image file
+            
+        Returns:
+            Dictionary containing document type, detected language, and extracted entities
+        """
+        
+        # Load the image
+        try:
+            image = PIL.Image.open(image_path)
+        except Exception as e:
+            raise ValueError(f"Error loading image: {e}")
+        
+        prompt = """
+        Analyze this document image and extract the following information:
+
+        1. Document Type: Identify what type of document this is (invoice, contract, medical form, rental agreement, etc.)
+        2. Language Detection: Determine the primary language of the document
+        3. Entity Extraction: Extract all personally identifying information and business information
+
+        CRITICAL LANGUAGE REQUIREMENT:
+        - Return ALL extracted text in the SAME LANGUAGE as detected in the document
+        - If the document is in Thai, return document type and entity names/values in Thai
+        - If the document is in German, return document type and entity names/values in German
+        - If the document is in Japanese, return document type and entity names/values in Japanese
+        - And so on for all languages - maintain language consistency
+
+        Extract these types of information when present:
+        - Personal Information: Full names, addresses, phone numbers, email addresses, ID numbers, dates of birth
+        - Company Information: Company names, business addresses, website URLs, business emails, tax IDs
+        - Document-Specific Data: Invoice numbers, contract dates, amounts, account numbers, policy numbers
+        - Dates: All dates found in the document
+        - Financial Information: Monetary amounts, account numbers, payment terms
+        - Contact Information: Phone numbers, email addresses, physical addresses
+
+        IMPORTANT INSTRUCTIONS:
+        1. Use the document's detected language for ALL field names and values
+        2. If text is in Thai, extract and return everything in Thai script
+        3. If text is in Chinese/Japanese, extract and return everything in those scripts
+        4. If text is in Arabic, extract and return everything in Arabic script
+        5. Preserve original formatting and spelling exactly as shown in the document
+        6. For mixed-language documents, use the primary/dominant language
+
+        Return the results in this exact JSON format:
+        {
+          "document_type": "type of document in detected language",
+          "detected_language": "language code (en, th, de, fr, ja, zh, etc.)",
+          "confidence": "high/medium/low",
+          "extracted_entities": {
+            "entity_name_in_detected_language": "extracted_value",
+            "another_entity_name": "another_value"
+          }
+        }
+
+        Examples of language-appropriate field names:
+        - English: "full_name", "company_name", "email_address", "phone_number"
+        - Thai: "ชื่อเต็ม", "ชื่อบริษัท", "อีเมล", "เบอร์โทรศัพท์"
+        - German: "vollständiger_name", "firmenname", "e_mail_adresse", "telefonnummer"
+        - French: "nom_complet", "nom_entreprise", "adresse_email", "numéro_téléphone"
+        - Japanese: "氏名", "会社名", "メールアドレス", "電話番号"
+
+        Return ONLY the JSON - no explanations or additional text.
+        """
+        
+        try:
+            response = self.model.generate_content([prompt, image])
+            response_text = response.text.strip()
+            
+            # Clean up response text (remove markdown if present)
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            elif response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            
+            response_text = response_text.strip()
+            
+            # Parse JSON response
+            try:
+                analysis_result = json.loads(response_text)
+                
+                # Validate required fields
+                required_fields = ['document_type', 'detected_language', 'extracted_entities']
+                for field in required_fields:
+                    if field not in analysis_result:
+                        analysis_result[field] = "Unknown" if field != 'extracted_entities' else {}
+                
+                return analysis_result
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Parse Error: {e}")
+                print(f"📏 Raw response length: {len(response.text)}")
+                print(f"📝 Full raw response:")
+                print("-" * 50)
+                print(response.text)
+                print("-" * 50)
+                print(f"🧹 Cleaned response:")
+                print("-" * 50)
+                print(response_text)
+                print("-" * 50)
+                
+                # Return error structure
+                return {
+                    "document_type": "Analysis Failed",
+                    "detected_language": "unknown",
+                    "confidence": "low",
+                    "extracted_entities": {},
+                    "error": f"JSON parsing failed: {e}",
+                    "raw_response": response.text
+                }
+                
+        except Exception as e:
+            return {
+                "document_type": "Analysis Failed",
+                "detected_language": "unknown", 
+                "confidence": "low",
+                "extracted_entities": {},
+                "error": f"API call failed: {e}"
+            }
