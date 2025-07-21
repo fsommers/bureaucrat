@@ -2,3 +2,5 @@
 .venv
 __pycache*
 output
+output_dir
+thai_medical
