@@ -2,6 +2,7 @@ import google.generativeai as genai
 import json
 from typing import Dict, List, Any
 from config import GEMINI_API_KEY, LANGUAGE_CODES
+import PIL.Image
 
 class GeminiClient:
     def __init__(self):
@@ -41,7 +42,36 @@ Data Requirements:
 - Make company names realistic for this business type in {language_name}-speaking regions
 - Use real-sounding names and addresses appropriate for {language_name} culture
 - Generate realistic amounts with appropriate currency symbols for the region
-- Generate realistic dates in appropriate formats
+- Generate realistic dates using region-specific formats:
+  * Thai (th): Use Buddhist Era dates (BE) - add 543 years to AD dates (e.g., "15 มกราคม 2567" for January 15, 2024)
+  * German (de): Use DD.MM.YYYY format (e.g., "15.01.2024")
+  * French (fr): Use DD/MM/YYYY format (e.g., "15/01/2024")
+  * Japanese (ja): Use Japanese era dates when appropriate (e.g., "令和6年1月15日")
+  * Chinese (zh): Use YYYY年MM月DD日 format (e.g., "2024年1月15日")
+  * Korean (ko): Use YYYY년 MM월 DD일 format (e.g., "2024년 1월 15일")
+  * Arabic (ar): Use Arabic calendar dates when appropriate
+  * English (en): Use MM/DD/YYYY format (e.g., "01/15/2024")
+  * Spanish (es): Use DD/MM/YYYY format (e.g., "15/01/2024")
+  * Portuguese (pt): Use DD/MM/YYYY format (e.g., "15/01/2024")
+  * Russian (ru): Use DD.MM.YYYY format (e.g., "15.01.2024")
+  * Italian (it): Use DD/MM/YYYY format (e.g., "15/01/2024")
+  * Dutch (nl): Use DD-MM-YYYY format (e.g., "15-01-2024")
+  * For other languages: Use the standard regional date format for that country/culture
+- Generate email addresses using region-appropriate domains:
+  * Thai (th): Use .co.th, .ac.th, or popular Thai domains like @hotmail.co.th, @gmail.com
+  * German (de): Use .de domains like @web.de, @gmx.de, @t-online.de, @gmail.com
+  * French (fr): Use .fr domains like @orange.fr, @free.fr, @laposte.net, @gmail.com
+  * Japanese (ja): Use .jp domains like @yahoo.co.jp, @gmail.com, @hotmail.co.jp
+  * Chinese (zh): Use .cn domains like @qq.com, @163.com, @126.com, @sina.com
+  * Korean (ko): Use .kr domains like @naver.com, @daum.net, @gmail.com, @hanmail.net
+  * Spanish (es): Use .es domains like @hotmail.es, @gmail.com, @yahoo.es
+  * Portuguese (pt): Use .pt or .br domains like @sapo.pt, @gmail.com, @hotmail.com, @uol.com.br
+  * Russian (ru): Use .ru domains like @mail.ru, @yandex.ru, @gmail.com, @rambler.ru
+  * Italian (it): Use .it domains like @libero.it, @gmail.com, @hotmail.it, @alice.it
+  * Dutch (nl): Use .nl domains like @ziggo.nl, @gmail.com, @hotmail.nl, @xs4all.nl
+  * Arabic (ar): Use appropriate regional domains (.sa, .ae, .eg, etc.) or @gmail.com
+  * English (en): Use .com domains like @gmail.com, @yahoo.com, @hotmail.com, @outlook.com
+  * For other languages: Use the most common email domains for that country/region
 - Each record must be unique and different
 - ALL descriptive text (terms, conditions, notes, descriptions) must be written in {language_name}
 
@@ -187,6 +217,19 @@ Return ONLY a JSON array with no extra text or formatting:
         - Add internal padding to the main container for text readability (e.g., padding: 0.3in)
         - CRITICAL: Generate VERBOSE, TEXT-RICH documents with comprehensive content suitable for the document type
         - MANDATORY: Fill the ENTIRE available content area (7.5" x 10") from top to bottom with detailed text content
+        - CRITICAL: Include at least 2-3 paragraphs of standard text relevant to each document type:
+          * Medical forms: Patient rights, treatment consent, privacy policies, medical history importance, healthcare provider responsibilities
+          * Contracts: Terms of agreement, payment conditions, dispute resolution, termination clauses, liability limitations
+          * Invoices: Payment terms, late fees, service descriptions, delivery conditions, warranty information
+          * Rental agreements: Tenant responsibilities, property maintenance, lease terms, security deposit policies, eviction procedures
+          * Insurance forms: Coverage details, claim procedures, exclusions, premium payment terms, policyholder obligations
+          * Employment documents: Job responsibilities, compensation details, benefits information, termination policies, confidentiality requirements
+        - MANDATORY: Use smaller font sizes to accommodate increased text volume:
+          * Main body text: font-size: 11px or 12px (instead of default 14px-16px)
+          * Headers: font-size: 16px-18px (h1), 14px-16px (h2), 12px-14px (h3)
+          * Legal/disclaimer text: font-size: 9px-10px
+          * Table text: font-size: 10px-11px
+          * This allows for significantly more content while maintaining readability
         - Include extensive sections with detailed explanations, comprehensive terms and conditions, legal clauses, and thorough descriptions
         - Add multiple paragraphs of relevant text for each section - do NOT create sparse or minimal content
         - For contracts/agreements: Include detailed legal language, comprehensive terms, conditions, rights, obligations, and procedures
@@ -196,6 +239,24 @@ Return ONLY a JSON array with no extra text or formatting:
         - Each section should contain multiple sentences and paragraphs of relevant, professional text
         - Generate realistic, detailed content that professionals would expect to see in this type of document
         - The document should appear substantial, comprehensive, and professionally complete
+        - CRITICAL: Include region-specific legal disclosures, warnings, and standard text relevant to the document type
+        - MANDATORY: Add legal text in smaller font (font-size: 0.8em or 0.9em) that references actual laws/regulations for the language region:
+          * Thai (th): Reference Thai Personal Data Protection Act (PDPA), Consumer Protection Act, or relevant Thai commercial law
+          * German (de): Reference DSGVO/GDPR, BGB (German Civil Code), or relevant German commercial regulations
+          * French (fr): Reference RGPD, Code Civil, Code de Commerce, or relevant French legal frameworks
+          * Japanese (ja): Reference Personal Information Protection Law, Civil Code, or relevant Japanese regulations
+          * Chinese (zh): Reference Cybersecurity Law, Consumer Protection Law, or relevant Chinese regulations
+          * Korean (ko): Reference Personal Information Protection Act, Consumer Protection Act, or Korean commercial law
+          * Spanish (es): Reference LOPD-GDD, Código Civil, or relevant Spanish legal frameworks
+          * Portuguese (pt): Reference LGPD (Brazil) or Portuguese data protection laws as appropriate
+          * Russian (ru): Reference Federal Law on Personal Data, Consumer Protection Law, or relevant Russian regulations
+          * Italian (it): Reference GDPR implementation, Codice Civile, or relevant Italian legal frameworks
+          * Dutch (nl): Reference AVG/GDPR, Burgerlijk Wetboek, or relevant Dutch legal frameworks
+          * Arabic (ar): Reference appropriate regional privacy/commercial laws based on country context
+          * English (en): Reference US state laws based on addresses in entity data (e.g., California CCPA, Texas Business Code, etc.)
+        - Include realistic legal disclaimers, privacy notices, terms of service, or regulatory compliance statements
+        - Add professional footer text with relevant legal references and compliance information
+        - Legal text should be contextually appropriate for the specific document type (medical forms = HIPAA/privacy, contracts = commercial law, etc.)
         - MANDATORY: Include CSS that prevents page breaks and ensures single-page printing:
           * page-break-inside: avoid; page-break-after: avoid; page-break-before: avoid;
         - Use print-friendly styling with exact measurements that will look professional when printed on paper
@@ -239,3 +300,128 @@ Return ONLY a JSON array with no extra text or formatting:
             html_content = html_content[:-3]  # Remove closing ```
         
         return html_content.strip()
+    
+    def analyze_document_image(self, image_path: str) -> Dict[str, Any]:
+        """
+        Analyze a document image to extract document type and personally identifying information.
+        
+        Args:
+            image_path: Path to the document image file
+            
+        Returns:
+            Dictionary containing document type, detected language, and extracted entities
+        """
+        
+        # Load the image
+        try:
+            image = PIL.Image.open(image_path)
+        except Exception as e:
+            raise ValueError(f"Error loading image: {e}")
+        
+        prompt = """
+        Analyze this document image and extract the following information:
+
+        1. Document Type: Identify what type of document this is (invoice, contract, medical form, rental agreement, etc.)
+        2. Language Detection: Determine the primary language of the document
+        3. Entity Extraction: Extract all personally identifying information and business information
+
+        CRITICAL LANGUAGE REQUIREMENT:
+        - Return ALL extracted text in the SAME LANGUAGE as detected in the document
+        - If the document is in Thai, return document type and entity names/values in Thai
+        - If the document is in German, return document type and entity names/values in German
+        - If the document is in Japanese, return document type and entity names/values in Japanese
+        - And so on for all languages - maintain language consistency
+
+        Extract these types of information when present:
+        - Personal Information: Full names, addresses, phone numbers, email addresses, ID numbers, dates of birth
+        - Company Information: Company names, business addresses, website URLs, business emails, tax IDs
+        - Document-Specific Data: Invoice numbers, contract dates, amounts, account numbers, policy numbers
+        - Dates: All dates found in the document
+        - Financial Information: Monetary amounts, account numbers, payment terms
+        - Contact Information: Phone numbers, email addresses, physical addresses
+
+        IMPORTANT INSTRUCTIONS:
+        1. Use the document's detected language for ALL field names and values
+        2. If text is in Thai, extract and return everything in Thai script
+        3. If text is in Chinese/Japanese, extract and return everything in those scripts
+        4. If text is in Arabic, extract and return everything in Arabic script
+        5. Preserve original formatting and spelling exactly as shown in the document
+        6. For mixed-language documents, use the primary/dominant language
+
+        Return the results in this exact JSON format:
+        {
+          "document_type": "type of document in detected language",
+          "detected_language": "language code (en, th, de, fr, ja, zh, etc.)",
+          "confidence": "high/medium/low",
+          "extracted_entities": {
+            "entity_name_in_detected_language": "extracted_value",
+            "another_entity_name": "another_value"
+          }
+        }
+
+        Examples of language-appropriate field names:
+        - English: "full_name", "company_name", "email_address", "phone_number"
+        - Thai: "ชื่อเต็ม", "ชื่อบริษัท", "อีเมล", "เบอร์โทรศัพท์"
+        - German: "vollständiger_name", "firmenname", "e_mail_adresse", "telefonnummer"
+        - French: "nom_complet", "nom_entreprise", "adresse_email", "numéro_téléphone"
+        - Japanese: "氏名", "会社名", "メールアドレス", "電話番号"
+
+        Return ONLY the JSON - no explanations or additional text.
+        """
+        
+        try:
+            response = self.model.generate_content([prompt, image])
+            response_text = response.text.strip()
+            
+            # Clean up response text (remove markdown if present)
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            elif response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            
+            response_text = response_text.strip()
+            
+            # Parse JSON response
+            try:
+                analysis_result = json.loads(response_text)
+                
+                # Validate required fields
+                required_fields = ['document_type', 'detected_language', 'extracted_entities']
+                for field in required_fields:
+                    if field not in analysis_result:
+                        analysis_result[field] = "Unknown" if field != 'extracted_entities' else {}
+                
+                return analysis_result
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Parse Error: {e}")
+                print(f"📏 Raw response length: {len(response.text)}")
+                print(f"📝 Full raw response:")
+                print("-" * 50)
+                print(response.text)
+                print("-" * 50)
+                print(f"🧹 Cleaned response:")
+                print("-" * 50)
+                print(response_text)
+                print("-" * 50)
+                
+                # Return error structure
+                return {
+                    "document_type": "Analysis Failed",
+                    "detected_language": "unknown",
+                    "confidence": "low",
+                    "extracted_entities": {},
+                    "error": f"JSON parsing failed: {e}",
+                    "raw_response": response.text
+                }
+                
+        except Exception as e:
+            return {
+                "document_type": "Analysis Failed",
+                "detected_language": "unknown", 
+                "confidence": "low",
+                "extracted_entities": {},
+                "error": f"API call failed: {e}"
+            }
