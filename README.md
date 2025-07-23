@@ -66,6 +66,9 @@ python generate_entities.py -a my_analysis.json -c 75 -o mixed_mode
 ```bash
 # Generate HTML documents using the entity data
 python generate_documents.py -e output/entity_data.json -o final_documents
+
+# Generate with original document as layout template
+python generate_documents.py -e output/entity_data.json -i original_document.jpg -o final_documents
 ```
 
 #### Step 4: Convert to PDF
@@ -100,6 +103,9 @@ python generate_documents.py -e output/entity_data.json
 
 # Generate with custom output directory
 python generate_documents.py -e thai_entities/entity_data.json -o thai_documents
+
+# Generate with template image for layout matching
+python generate_documents.py -e output/entity_data.json -i template_document.jpg -o templated_docs
 ```
 
 #### Step 3: Convert to PDF
@@ -158,6 +164,7 @@ Create HTML documents from entity data.
 - `-e, --entity-file PATH`: JSON file with entity data (required)
 - `-t, --document-type TEXT`: Override document type (optional)
 - `-l, --language TEXT`: Override language (optional)
+- `-i, --template-image PATH`: Image file to use as layout template (optional)
 - `-o, --output-dir TEXT`: Output directory (default: output)
 - `-s, --start-index INTEGER`: Starting document number (default: 1)
 
@@ -228,6 +235,21 @@ python generate_documents.py -e output/entity_data.json -o japanese_contracts
 python convert_to_pdf.py -i japanese_contracts
 ```
 
+### Template-Based Document Generation
+```bash
+# Generate documents that match existing template layout
+python generate_entities.py -t "medical consultation form" -e "patient name,doctor name,diagnosis,treatment" -c 10
+python generate_documents.py -e output/entity_data.json -i template_medical_form.jpg -o templated_medical
+
+# Analysis + Template workflow for precise matching
+python analyze_document.py -i original_invoice.png -o analysis
+python generate_entities.py -a analysis/document_analysis.json -c 25 -o invoice_entities
+python generate_documents.py -e invoice_entities/entity_data.json -i original_invoice.png -o matched_invoices
+python convert_to_pdf.py -i matched_invoices
+
+# Result: Documents that closely match the original template's layout and appearance
+```
+
 ## PDF Conversion Engines
 
 ### WeasyPrint (Recommended)
@@ -289,6 +311,12 @@ backgrounds/
 6. **Document Metadata**: JSON linking documents to entity data
 
 ## Advanced Features
+
+### Template-Based Layout Matching
+- **Layout Template Images**: Use existing document images as visual templates for HTML generation
+- **Precise Layout Replication**: AI analyzes template images and matches positioning, spacing, and structure
+- **Visual Design Matching**: Replicates headers, tables, text formatting, and overall document appearance
+- **Template Priority**: Template layout takes precedence over generic formatting when `-i` parameter is used
 
 ### Font Optimization
 - **Reduced Font Sizes**: 11-12px body text, 9-10px legal text for content density

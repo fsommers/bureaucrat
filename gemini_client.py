@@ -28,11 +28,22 @@ class GeminiClient:
         # Get language name for clearer instructions
         language_name = language_context.replace(' context', '')
         
-        prompt = f"""Create realistic business data for: {document_type}
+        # Try to generate the requested count, with retry logic and batching for large counts
+        max_retries = 3
+        entity_list = []
+        remaining_count = count
+        
+        while remaining_count > 0 and max_retries > 0:
+            # For large counts, generate in batches to improve success rate
+            batch_size = min(remaining_count, 20)  # Generate max 20 at a time
+            
+            prompt = f"""Create realistic business data for: {document_type}
 
-Generate {count} data records with these fields: {', '.join(entity_fields)}
+Generate EXACTLY {batch_size} data records with these fields: {', '.join(entity_fields)}
 
-CRITICAL LANGUAGE REQUIREMENT:
+CRITICAL REQUIREMENTS:
+- You MUST generate EXACTLY {batch_size} records, no more, no less
+- Each record MUST have all {len(entity_fields)} fields: {', '.join(entity_fields)}
 - ALL text content must be written in {language_name} language
 - ALL field values including descriptions, terms, conditions, notes, etc. must be in {language_name}
 - Company names, addresses, and person names should be culturally appropriate for {language_name}-speaking regions
@@ -81,83 +92,149 @@ Examples of language consistency:
 - French (fr): "Partage des bénéfices 50/50, responsabilités de gestion égales"
 - Japanese (ja): "50/50利益分配、平等な経営責任"
 
-Return ONLY a JSON array with no extra text or formatting:
+CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra text or formatting:
 [{{"field1": "realistic_value1", "field2": "realistic_value2"}}, {{"field1": "realistic_value3", "field2": "realistic_value4"}}]"""
-        
-        response = self.model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # Clean up the response text - remove markdown formatting and explanations
-        if response_text.startswith('```json'):
-            response_text = response_text[7:]  # Remove ```json
-        if response_text.startswith('```'):
-            response_text = response_text[3:]   # Remove just ```
-        if response_text.endswith('```'):
-            response_text = response_text[:-3]  # Remove closing ```
-        
-        # Find JSON array in the response
-        import re
-        json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
-        if json_match:
-            response_text = json_match.group(0)
-        
-        response_text = response_text.strip()
-        
-        try:
-            data = json.loads(response_text)
-            # Ensure we return a list
-            if isinstance(data, list):
-                entity_list = data
-            else:
-                # If single object returned, wrap in list
-                entity_list = [data]
             
-            # Add document_type to each entity record
-            for entity in entity_list:
-                entity['_document_type'] = document_type
-                entity['_language'] = language
+            try:
+                response = self.model.generate_content(prompt)
+                response_text = response.text.strip()
+                
+                # Clean up the response text - remove markdown formatting and explanations
+                if response_text.startswith('```json'):
+                    response_text = response_text[7:]  # Remove ```json
+                if response_text.startswith('```'):
+                    response_text = response_text[3:]   # Remove just ```
+                if response_text.endswith('```'):
+                    response_text = response_text[:-3]  # Remove closing ```
+                
+                # Find JSON array in the response
+                import re
+                json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+                if json_match:
+                    response_text = json_match.group(0)
+                
+                response_text = response_text.strip()
+                
+                try:
+                    data = json.loads(response_text)
+                    # Ensure we return a list
+                    if isinstance(data, list):
+                        batch_entities = data
+                    else:
+                        # If single object returned, wrap in list
+                        batch_entities = [data]
+                    
+                    # Validate that we got the right number of entities
+                    if len(batch_entities) == batch_size:
+                        # Add metadata to each entity record
+                        for entity in batch_entities:
+                            entity['_document_type'] = document_type
+                            entity['_language'] = language
+                        
+                        entity_list.extend(batch_entities)
+                        remaining_count -= batch_size
+                        print(f"Generated batch of {len(batch_entities)} entities ({len(entity_list)}/{count} total)")
+                    else:
+                        print(f"⚠️  Expected {batch_size} entities but got {len(batch_entities)}, retrying...")
+                        max_retries -= 1
+                        
+                except json.JSONDecodeError as e:
+                    print(f"❌ JSON Parse Error in batch: {e}")
+                    max_retries -= 1
+                    
+            except Exception as e:
+                print(f"❌ API Error in batch: {e}")
+                max_retries -= 1
+        
+        # If we didn't get the full count after retries, fill the remainder with generated data
+        if len(entity_list) < count:
+            print(f"⚠️  Only generated {len(entity_list)}/{count} entities after retries")
+            print("🔄 Filling remaining slots with additional generated data")
             
-            print(f"Successfully generated {len(entity_list)} entity records")
-            return entity_list
-            
-        except json.JSONDecodeError as e:
-            # Print debug information
-            print(f"❌ JSON Parse Error: {e}")
-            print(f"📏 Raw response length: {len(response.text)}")
-            print(f"📝 Full raw response:")
-            print("-" * 50)
-            print(response.text)
-            print("-" * 50)
-            print(f"🧹 Cleaned response length: {len(response_text)}")
-            print(f"🧹 Cleaned response:")
-            print("-" * 50)
-            print(response_text)
-            print("-" * 50)
-            
-            # Try to provide helpful error message
-            if "sample_" in response_text.lower() or not response_text.startswith('['):
-                print("⚠️  It looks like the LLM didn't generate proper JSON or returned sample data")
-                print("💡 This might be due to:")
-                print("   - API key issues")
-                print("   - Model not understanding the prompt") 
-                print("   - Response filtering/safety controls")
-            
-            # Fallback if response isn't valid JSON
-            print("🔄 Falling back to sample data due to JSON parse error")
-            fallback_data = []
-            for i in range(count):
-                entity = {field: f"sample_{field}_{i+1}" for field in entity_fields}
-                entity['_document_type'] = document_type
-                entity['_language'] = language
-                fallback_data.append(entity)
-            return fallback_data
+            # Generate the remaining entities one more time or use fallback
+            remaining = count - len(entity_list)
+            try:
+                # Try one more batch for remaining
+                final_prompt = f"""Generate EXACTLY {remaining} realistic business data records for: {document_type}
+With fields: {', '.join(entity_fields)}
+Language: {language_name}
+Return ONLY JSON array: [{{"field1": "value1"}}]"""
+                
+                response = self.model.generate_content(final_prompt)
+                response_text = response.text.strip()
+                
+                # Clean response
+                if response_text.startswith('```json'):
+                    response_text = response_text[7:]
+                elif response_text.startswith('```'):
+                    response_text = response_text[3:]
+                if response_text.endswith('```'):
+                    response_text = response_text[:-3]
+                
+                import re
+                json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+                if json_match:
+                    response_text = json_match.group(0)
+                
+                final_data = json.loads(response_text)
+                if isinstance(final_data, list):
+                    final_entities = final_data[:remaining]  # Take only what we need
+                    for entity in final_entities:
+                        entity['_document_type'] = document_type
+                        entity['_language'] = language
+                    entity_list.extend(final_entities)
+                    
+            except:
+                # Final fallback - generate synthetic data for remaining slots
+                for i in range(remaining):
+                    entity = {field: f"generated_{field}_{len(entity_list) + i + 1}" for field in entity_fields}
+                    entity['_document_type'] = document_type
+                    entity['_language'] = language
+                    entity_list.append(entity)
+        
+        print(f"✅ Successfully generated {len(entity_list)} entity records")
+        return entity_list[:count]  # Ensure we return exactly the requested count
     
-    def generate_document_with_data(self, document_type: str, entity_data: Dict[str, str], language: str = 'en') -> str:
+    def generate_document_with_data(self, document_type: str, entity_data: Dict[str, str], language: str = 'en', template_image_path: str = None) -> str:
+        # Handle template image if provided
+        template_instruction = ""
+        if template_image_path:
+            template_instruction = f"""
+        CRITICAL TEMPLATE REQUIREMENT - EXACT LAYOUT MATCHING:
+        - You are provided with a template image that shows the EXACT layout and structure you must replicate
+        - You MUST match the general layout and appearance of the provided document image AS CLOSELY AS POSSIBLE
+        - ANALYZE the template image carefully and replicate:
+          * The exact positioning and alignment of all sections, headers, text blocks, tables, and form fields
+          * The precise visual hierarchy, spacing, and proportions shown in the template
+          * The specific arrangement and flow of information as demonstrated in the template
+          * The overall document structure, including margins, padding, and element positioning
+          * The visual appearance including fonts, text sizes, styling, and formatting patterns
+          * The layout grid, column structure, and sectional organization
+        - REPLICATE the visual design elements:
+          * Header styling and positioning
+          * Table layouts and cell arrangements if present
+          * Text formatting patterns (bold, italic, sizes)
+          * Spacing between elements and sections
+          * Border styles and visual separators
+          * Overall proportions and element sizing
+        - The template image is your PRIMARY REFERENCE - prioritize matching its layout over generic formatting
+        - Create HTML that would visually appear as similar as possible to the template when rendered
+        - Use CSS positioning, flexbox, grid, or other layout techniques to achieve precise positioning match
+        
+        CRITICAL PRIVACY PROTECTION - NEVER USE TEMPLATE PERSONAL DATA:
+        - NEVER use any personal information from the template image (person names, company names, addresses, phone numbers, email addresses, ID numbers, creditor names, creditor addresses, etc.)
+        - ALWAYS substitute personal/confidential data items with values from the provided entity_file data
+        - If the entity file does not have a corresponding item for a personal or confidential data element, invent a new realistic value for that data item
+        - Generate synthetic creditor names and addresses if creditor information appears in the template but is not provided in the entity data
+        - Only replicate the LAYOUT, STRUCTURE, and VISUAL DESIGN from the template - never copy actual data content
+        - Use the template image ONLY as a visual reference for positioning and styling, not as a source of data
+        """
+
         prompt = f"""
         Based on the following description, create an HTML-based business form that is already prefilled with synthetic, realistic data. Do NOT create a fillable form - create a completed form document that looks like it has been filled out already.
 
         Description: {document_type}
-
+        {template_instruction}
         Language and Localization: {language}
         
         Entity Data to Use:
@@ -288,7 +365,19 @@ Return ONLY a JSON array with no extra text or formatting:
         - Write ALL additional content (headers, labels, legal text, descriptions) in {language}
         """
         
-        response = self.model.generate_content(prompt)
+        # Generate content with or without template image
+        if template_image_path:
+            try:
+                # Load the template image
+                image = PIL.Image.open(template_image_path)
+                # Send both prompt and image to the model
+                response = self.model.generate_content([prompt, image])
+            except Exception as e:
+                raise ValueError(f"Error loading template image: {e}")
+        else:
+            # Generate without template image (original behavior)
+            response = self.model.generate_content(prompt)
+            
         html_content = response.text.strip()
         
         # Remove markdown code blocks if present

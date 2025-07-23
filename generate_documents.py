@@ -61,11 +61,13 @@ def copy_background_for_document(background_files, output_dir, doc_number):
               help='Override document type (uses document type from entity file if not specified)')
 @click.option('--language', '-l', default=None,
               help=f'Override language code (uses language from entity file if not specified). Supported: {", ".join(sorted(LANGUAGE_CODES.keys()))}')
+@click.option('--template-image', '-i', type=click.Path(exists=True), default=None,
+              help='Path to image file to use as template for document layout and structure')
 @click.option('--output-dir', '-o', default=DEFAULT_OUTPUT_DIR,
               help=f'Output directory for HTML documents (default: {DEFAULT_OUTPUT_DIR})')
 @click.option('--start-index', '-s', default=1, type=int,
               help='Starting index for document numbering (default: 1)')
-def generate_documents(entity_file, document_type, language, output_dir, start_index):
+def generate_documents(entity_file, document_type, language, template_image, output_dir, start_index):
     """
     Generate HTML documents using pre-generated entity data.
     
@@ -79,6 +81,8 @@ def generate_documents(entity_file, document_type, language, output_dir, start_i
     python generate_documents.py -e thai_entities/entity_data.json -o contracts
     
     python generate_documents.py -e output/entity_data.json -t "custom document type" -l en
+    
+    python generate_documents.py -e output/entity_data.json -i template.jpg -o templated_docs
     """
     
     # Validate entity file exists
@@ -137,6 +141,8 @@ def generate_documents(entity_file, document_type, language, output_dir, start_i
     click.echo(f"Entity File: {entity_file}")
     click.echo(f"Entity Records: {len(entity_data_list)}")
     click.echo(f"Language: {language}")
+    if template_image:
+        click.echo(f"Template Image: {template_image}")
     click.echo(f"Output Directory: {output_dir}")
     click.echo(f"Starting Index: {start_index}")
     click.echo()
@@ -160,7 +166,7 @@ def generate_documents(entity_file, document_type, language, output_dir, start_i
             
             # Generate document with specific entity data
             complete_html = client.generate_document_with_data(
-                document_type, entity_data, language
+                document_type, entity_data, language, template_image
             )
             
             # Add background styling and UTF-8 support
