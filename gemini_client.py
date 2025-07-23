@@ -195,12 +195,46 @@ Return ONLY JSON array: [{{"field1": "value1"}}]"""
         print(f"✅ Successfully generated {len(entity_list)} entity records")
         return entity_list[:count]  # Ensure we return exactly the requested count
     
-    def generate_document_with_data(self, document_type: str, entity_data: Dict[str, str], language: str = 'en') -> str:
+    def generate_document_with_data(self, document_type: str, entity_data: Dict[str, str], language: str = 'en', template_image_path: str = None) -> str:
+        # Handle template image if provided
+        template_instruction = ""
+        if template_image_path:
+            template_instruction = f"""
+        CRITICAL TEMPLATE REQUIREMENT - EXACT LAYOUT MATCHING:
+        - You are provided with a template image that shows the EXACT layout and structure you must replicate
+        - You MUST match the general layout and appearance of the provided document image AS CLOSELY AS POSSIBLE
+        - ANALYZE the template image carefully and replicate:
+          * The exact positioning and alignment of all sections, headers, text blocks, tables, and form fields
+          * The precise visual hierarchy, spacing, and proportions shown in the template
+          * The specific arrangement and flow of information as demonstrated in the template
+          * The overall document structure, including margins, padding, and element positioning
+          * The visual appearance including fonts, text sizes, styling, and formatting patterns
+          * The layout grid, column structure, and sectional organization
+        - REPLICATE the visual design elements:
+          * Header styling and positioning
+          * Table layouts and cell arrangements if present
+          * Text formatting patterns (bold, italic, sizes)
+          * Spacing between elements and sections
+          * Border styles and visual separators
+          * Overall proportions and element sizing
+        - The template image is your PRIMARY REFERENCE - prioritize matching its layout over generic formatting
+        - Create HTML that would visually appear as similar as possible to the template when rendered
+        - Use CSS positioning, flexbox, grid, or other layout techniques to achieve precise positioning match
+        
+        CRITICAL PRIVACY PROTECTION - NEVER USE TEMPLATE PERSONAL DATA:
+        - NEVER use any personal information from the template image (person names, company names, addresses, phone numbers, email addresses, ID numbers, creditor names, creditor addresses, etc.)
+        - ALWAYS substitute personal/confidential data items with values from the provided entity_file data
+        - If the entity file does not have a corresponding item for a personal or confidential data element, invent a new realistic value for that data item
+        - Generate synthetic creditor names and addresses if creditor information appears in the template but is not provided in the entity data
+        - Only replicate the LAYOUT, STRUCTURE, and VISUAL DESIGN from the template - never copy actual data content
+        - Use the template image ONLY as a visual reference for positioning and styling, not as a source of data
+        """
+
         prompt = f"""
         Based on the following description, create an HTML-based business form that is already prefilled with synthetic, realistic data. Do NOT create a fillable form - create a completed form document that looks like it has been filled out already.
 
         Description: {document_type}
-
+        {template_instruction}
         Language and Localization: {language}
         
         Entity Data to Use:
@@ -331,7 +365,19 @@ Return ONLY JSON array: [{{"field1": "value1"}}]"""
         - Write ALL additional content (headers, labels, legal text, descriptions) in {language}
         """
         
-        response = self.model.generate_content(prompt)
+        # Generate content with or without template image
+        if template_image_path:
+            try:
+                # Load the template image
+                image = PIL.Image.open(template_image_path)
+                # Send both prompt and image to the model
+                response = self.model.generate_content([prompt, image])
+            except Exception as e:
+                raise ValueError(f"Error loading template image: {e}")
+        else:
+            # Generate without template image (original behavior)
+            response = self.model.generate_content(prompt)
+            
         html_content = response.text.strip()
         
         # Remove markdown code blocks if present
