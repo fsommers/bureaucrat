@@ -29,22 +29,31 @@ class GeminiClient:
         language_name = language_context.replace(' context', '')
         
         # Try to generate the requested count, with retry logic and batching for large counts
-        max_retries = 3
+        max_batch_retries = 5  # More retries per batch
         entity_list = []
         remaining_count = count
         
-        while remaining_count > 0 and max_retries > 0:
+        while remaining_count > 0 and max_batch_retries > 0:
+            batch_retries = 3  # Retries for this specific batch
             # For large counts, generate in batches to improve success rate
-            batch_size = min(remaining_count, 20)  # Generate max 20 at a time
+            batch_size = min(remaining_count, 5)  # Generate max 5 at a time for better accuracy
             
             prompt = f"""Create realistic business data for: {document_type}
 
-Generate EXACTLY {batch_size} data records with these fields: {', '.join(entity_fields)}
+🎯 ABSOLUTE REQUIREMENT: Generate EXACTLY {batch_size} data records - NOT {batch_size-1}, NOT {batch_size+1}, EXACTLY {batch_size}
 
-CRITICAL REQUIREMENTS:
-- You MUST generate EXACTLY {batch_size} records, no more, no less
-- Each record MUST have all {len(entity_fields)} fields: {', '.join(entity_fields)}
+MANDATORY FIELD STRUCTURE:
+- Each record MUST have ALL {len(entity_fields)} fields: {', '.join(entity_fields)}
+- NO missing fields, NO extra fields, NO null values
 - ALL text content must be written in {language_name} language
+
+⚠️  CRITICAL COUNT COMPLIANCE:
+- If batch_size is {batch_size}, you MUST return EXACTLY {batch_size} objects in the JSON array
+- COUNT your objects before returning: 1, 2, 3... up to {batch_size}
+- VERIFY your output contains exactly {batch_size} objects
+- FAILURE to return exactly {batch_size} objects will cause system errors
+
+LANGUAGE & CULTURAL REQUIREMENTS:
 - ALL field values including descriptions, terms, conditions, notes, etc. must be in {language_name}
 - Company names, addresses, and person names should be culturally appropriate for {language_name}-speaking regions
 - Do NOT mix languages - everything must be consistently in {language_name}
@@ -92,59 +101,94 @@ Examples of language consistency:
 - French (fr): "Partage des bénéfices 50/50, responsabilités de gestion égales"
 - Japanese (ja): "50/50利益分配、平等な経営責任"
 
-CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra text or formatting:
-[{{"field1": "realistic_value1", "field2": "realistic_value2"}}, {{"field1": "realistic_value3", "field2": "realistic_value4"}}]"""
+CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra text or formatting.
+
+EXAMPLES OF CORRECT OUTPUT FORMAT:
+
+For batch_size=3 with fields ["company_name", "email", "amount"]:
+[{{"company_name": "Acme Corp", "email": "info@acme.com", "amount": "$1,200.00"}}, {{"company_name": "Tech Solutions", "email": "contact@techsol.com", "amount": "$2,500.00"}}, {{"company_name": "Global Services", "email": "admin@global.com", "amount": "$3,100.00"}}]
+
+For batch_size=2 with fields ["name", "phone", "address"]:
+[{{"name": "John Smith", "phone": "555-123-4567", "address": "123 Main St, City, State"}}, {{"name": "Sarah Johnson", "phone": "555-987-6543", "address": "456 Oak Ave, Town, State"}}]
+
+For batch_size=1 with fields ["invoice_number", "date", "total"]:
+[{{"invoice_number": "INV-2024-001", "date": "01/15/2024", "total": "$850.00"}}]
+
+YOUR OUTPUT MUST FOLLOW THIS EXACT PATTERN - JSON array with exactly {batch_size} objects:"""
             
-            try:
-                response = self.model.generate_content(prompt)
-                response_text = response.text.strip()
-                
-                # Clean up the response text - remove markdown formatting and explanations
-                if response_text.startswith('```json'):
-                    response_text = response_text[7:]  # Remove ```json
-                if response_text.startswith('```'):
-                    response_text = response_text[3:]   # Remove just ```
-                if response_text.endswith('```'):
-                    response_text = response_text[:-3]  # Remove closing ```
-                
-                # Find JSON array in the response
-                import re
-                json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
-                if json_match:
-                    response_text = json_match.group(0)
-                
-                response_text = response_text.strip()
-                
+            batch_success = False
+            
+            while batch_retries > 0 and not batch_success:
                 try:
-                    data = json.loads(response_text)
-                    # Ensure we return a list
-                    if isinstance(data, list):
-                        batch_entities = data
-                    else:
-                        # If single object returned, wrap in list
-                        batch_entities = [data]
+                    response = self.model.generate_content(prompt)
+                    response_text = response.text.strip()
                     
-                    # Validate that we got the right number of entities
-                    if len(batch_entities) == batch_size:
-                        # Add metadata to each entity record
-                        for entity in batch_entities:
-                            entity['_document_type'] = document_type
-                            entity['_language'] = language
-                        
-                        entity_list.extend(batch_entities)
-                        remaining_count -= batch_size
-                        print(f"Generated batch of {len(batch_entities)} entities ({len(entity_list)}/{count} total)")
-                    else:
-                        print(f"⚠️  Expected {batch_size} entities but got {len(batch_entities)}, retrying...")
-                        max_retries -= 1
-                        
-                except json.JSONDecodeError as e:
-                    print(f"❌ JSON Parse Error in batch: {e}")
-                    max_retries -= 1
+                    # Clean up the response text - remove markdown formatting and explanations
+                    if response_text.startswith('```json'):
+                        response_text = response_text[7:]  # Remove ```json
+                    if response_text.startswith('```'):
+                        response_text = response_text[3:]   # Remove just ```
+                    if response_text.endswith('```'):
+                        response_text = response_text[:-3]  # Remove closing ```
                     
-            except Exception as e:
-                print(f"❌ API Error in batch: {e}")
-                max_retries -= 1
+                    # Find JSON array in the response
+                    import re
+                    json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+                    if json_match:
+                        response_text = json_match.group(0)
+                    
+                    response_text = response_text.strip()
+                    
+                    try:
+                        data = json.loads(response_text)
+                        # Ensure we return a list
+                        if isinstance(data, list):
+                            batch_entities = data
+                        else:
+                            # If single object returned, wrap in list
+                            batch_entities = [data]
+                        
+                        # Validate that we got the right number of entities
+                        if len(batch_entities) == batch_size:
+                            # Add metadata to each entity record
+                            for entity in batch_entities:
+                                entity['_document_type'] = document_type
+                                entity['_language'] = language
+                            
+                            entity_list.extend(batch_entities)
+                            remaining_count -= batch_size
+                            print(f"✅ Generated batch of {len(batch_entities)} entities ({len(entity_list)}/{count} total)")
+                            batch_success = True
+                        elif len(batch_entities) > 0:
+                            # Accept partial results if we got something useful
+                            actual_count = min(len(batch_entities), batch_size)
+                            useful_entities = batch_entities[:actual_count]
+                            
+                            # Add metadata to each entity record
+                            for entity in useful_entities:
+                                entity['_document_type'] = document_type
+                                entity['_language'] = language
+                            
+                            entity_list.extend(useful_entities)
+                            remaining_count -= len(useful_entities)
+                            print(f"⚠️  Expected {batch_size} entities but got {len(batch_entities)}, accepting {len(useful_entities)} ({len(entity_list)}/{count} total)")
+                            batch_success = True
+                        else:
+                            print(f"❌ Got empty response, retrying batch ({batch_retries} retries left)")
+                            batch_retries -= 1
+                            
+                    except json.JSONDecodeError as e:
+                        print(f"❌ JSON Parse Error in batch: {e} (retries left: {batch_retries})")
+                        batch_retries -= 1
+                        
+                except Exception as e:
+                    print(f"❌ API Error in batch: {e} (retries left: {batch_retries})")
+                    batch_retries -= 1
+            
+            # If batch completely failed, reduce overall retry count
+            if not batch_success:
+                max_batch_retries -= 1
+                print(f"❌ Batch failed completely, reducing overall retries to {max_batch_retries}")
         
         # If we didn't get the full count after retries, fill the remainder with generated data
         if len(entity_list) < count:
