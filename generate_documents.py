@@ -213,8 +213,12 @@ def generate_documents(entity_file, document_type, language, template_image, out
                     font_style = "<style>\n* {\n    font-family: Arial, 'Segoe UI', 'DejaVu Sans', 'Helvetica Neue', Helvetica, sans-serif !important;\n}\n</style>\n"
                     complete_html = font_style + complete_html
             
-            # Save HTML file with UTF-8 encoding
-            filename = f"document_{doc_number:04d}.html"
+            # Save HTML file with UTF-8 encoding - use document type for filename
+            # Create a safe filename from document type by replacing spaces and special chars
+            safe_doc_type = document_type.lower().replace(' ', '_').replace('-', '_')
+            # Remove any other special characters that might cause issues
+            safe_doc_type = ''.join(c for c in safe_doc_type if c.isalnum() or c == '_')
+            filename = f"{safe_doc_type}_{doc_number:04d}.html"
             filepath = os.path.join(output_dir, filename)
             
             with open(filepath, 'w', encoding='utf-8', newline='') as f:
