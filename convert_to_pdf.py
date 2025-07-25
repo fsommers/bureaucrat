@@ -3,6 +3,7 @@
 import click
 import os
 import glob
+import re
 from pathlib import Path
 
 @click.command()
@@ -96,6 +97,42 @@ def convert_to_pdf(html_dir, output_dir, converter, paper_size, pattern, keep_ht
         click.echo(f"❌ Error: {str(e)}")
         return 1
 
+def shorten_filename(filename, max_length=16):
+    """
+    Shorten filename to max_length while preserving ending numbers.
+    
+    Args:
+        filename: Original filename (without extension)
+        max_length: Maximum length for the result (default: 16)
+    
+    Returns:
+        Shortened filename preserving ending numbers
+    """
+    if len(filename) <= max_length:
+        return filename
+    
+    # Check if filename ends with numbers (e.g., _0001, _123, etc.)
+    match = re.search(r'(_\d+)$', filename)
+    
+    if match:
+        # Extract the ending number part
+        ending_number = match.group(1)
+        # Get the base name without the ending number
+        base_name = filename[:-len(ending_number)]
+        # Calculate how much space we have for the base name
+        available_length = max_length - len(ending_number)
+        
+        if available_length > 0:
+            # Shorten the base name and add the ending number
+            shortened_base = base_name[:available_length]
+            return shortened_base + ending_number
+        else:
+            # If ending number is too long, just truncate the whole thing
+            return filename[:max_length]
+    else:
+        # No ending number, just truncate
+        return filename[:max_length]
+
 def convert_with_weasyprint(html_files, output_dir, paper_size):
     """Convert HTML files to PDF using WeasyPrint"""
     try:
@@ -110,7 +147,8 @@ def convert_with_weasyprint(html_files, output_dir, paper_size):
         try:
             # Generate PDF filename
             html_name = Path(html_file).stem
-            pdf_path = os.path.join(output_dir, f"{html_name}.pdf")
+            shortened_name = shorten_filename(html_name)
+            pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
             
             # Convert to PDF with proper encoding and font support
             html_doc = weasyprint.HTML(filename=html_file, encoding='utf-8')
@@ -166,7 +204,8 @@ def convert_with_wkhtmltopdf(html_files, output_dir, paper_size):
         try:
             # Generate PDF filename
             html_name = Path(html_file).stem
-            pdf_path = os.path.join(output_dir, f"{html_name}.pdf")
+            shortened_name = shorten_filename(html_name)
+            pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
             
             # Build command with UTF-8 encoding support and zero margins
             cmd = [
@@ -224,7 +263,8 @@ def convert_with_playwright(html_files, output_dir, paper_size):
             try:
                 # Generate PDF filename
                 html_name = Path(html_file).stem
-                pdf_path = os.path.join(output_dir, f"{html_name}.pdf")
+                shortened_name = shorten_filename(html_name)
+                pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
                 
                 # Load HTML file with proper encoding
                 with open(html_file, 'r', encoding='utf-8') as f:
@@ -288,7 +328,8 @@ def convert_with_chrome(html_files, output_dir, paper_size):
         try:
             # Generate PDF filename
             html_name = Path(html_file).stem
-            pdf_path = os.path.join(output_dir, f"{html_name}.pdf")
+            shortened_name = shorten_filename(html_name)
+            pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
             
             # Build command
             cmd = [

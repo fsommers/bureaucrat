@@ -138,6 +138,48 @@ Analyze document images to extract structure and entities.
 }
 ```
 
+### apply_value.py
+Apply values from one entities file to another by replacing attribute values. Useful for transferring data between different entity datasets or combining entity attributes.
+
+**Parameters:**
+- `from_entities_file`: JSON file containing source entities (required)
+- `to_entities_file`: JSON file containing target entities to be modified (required)
+- `from_attribute`: Attribute name in source entities to copy from (required)
+- `to_attribute`: Attribute name in target entities to replace (required)
+
+**Features:**
+- **Different List Lengths**: Handles entity lists of different lengths (processes min length)
+- **Missing Attributes**: Interactive prompt to add missing target attributes
+- **Progress Reporting**: Shows each value change with before/after values
+- **File Backup**: Automatically saves modified target file
+
+**Usage Examples:**
+```bash
+# Copy full names to customer names
+python apply_value.py from.json to.json full_name "Customer Name"
+
+# Transfer email addresses between entity sets
+python apply_value.py source_entities.json target_entities.json email contact_email
+
+# Apply invoice numbers from one dataset to another
+python apply_value.py invoice_data.json contract_data.json invoice_id contract_number
+```
+
+**Interactive Missing Attribute Handling:**
+```bash
+$ python apply_value.py from.json to.json full_name "Customer Name"
+⚠️  Attribute 'Customer Name' not found in 5 target entities
+   Missing in entities at indices: [0, 1, 2, 3, 4]
+   Available attributes in target entities: ['name', 'email', 'phone']
+
+Do you want to add 'Customer Name' attribute to the target entities? (y/n): y
+✅ Adding 'Customer Name' attribute to target entities...
+   Added 'Customer Name' attribute to 5 entities
+[1] 'Customer Name': '' → 'Frank Sommers'
+[2] 'Customer Name': '' → 'Jane Smith'
+...
+```
+
 ### generate_entities.py (Enhanced)
 Generate synthetic entity data manually or from document analysis.
 
@@ -248,6 +290,39 @@ python generate_documents.py -e invoice_entities/entity_data.json -i original_in
 python convert_to_pdf.py -i matched_invoices
 
 # Result: Documents that closely match the original template's layout and appearance
+```
+
+### Entity Data Manipulation Workflow
+```bash
+# Generate customer data and invoice data separately
+python generate_entities.py -t "customer information" -e "full_name,email,address,phone" -c 100 -o customers
+python generate_entities.py -t "invoice data" -e "invoice_number,amount,date,description" -c 100 -o invoices
+
+# Combine the datasets by applying customer names to invoices
+python apply_value.py customers/entity_data.json invoices/entity_data.json full_name "customer_name"
+
+# Generate final invoice documents with combined data
+python generate_documents.py -e invoices/entity_data.json -o combined_invoices
+python convert_to_pdf.py -i combined_invoices
+
+# Result: 100 invoices with realistic customer names and invoice details
+```
+
+### Cross-Language Entity Transfer
+```bash
+# Generate German entity data
+python generate_entities.py -t "Geschäftsvertrag" -e "Firmenname,Adresse,Telefon" -c 50 -l de -o german_entities
+
+# Generate English contract templates
+python generate_entities.py -t "business contract" -e "contract_number,start_date,duration" -c 50 -o english_contracts
+
+# Transfer German company names to English contracts
+python apply_value.py german_entities/entity_data.json english_contracts/entity_data.json Firmenname "company_name"
+
+# Generate bilingual-style contracts
+python generate_documents.py -e english_contracts/entity_data.json -o bilingual_contracts
+
+# Result: English contracts with authentic German company names
 ```
 
 ## PDF Conversion Engines
