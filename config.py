@@ -8,7 +8,7 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # Default settings
 DEFAULT_OUTPUT_DIR = 'output'
 DEFAULT_DOCUMENT_COUNT = 10
-# Standard language codes mapping to language names
+
 LANGUAGE_CODES = {
     'en': 'English/US context',
     'th': 'Thai context',

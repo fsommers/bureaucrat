@@ -8,14 +8,36 @@ class GeminiClient:
     def __init__(self):
         if not GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
-        
+
         genai.configure(api_key=GEMINI_API_KEY)
+
+        # Configure safety settings to be less restrictive for document generation
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_ONLY_HIGH"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_ONLY_HIGH"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_ONLY_HIGH"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_ONLY_HIGH"
+            }
+        ]
+
         self.model = genai.GenerativeModel(
-            'gemini-1.5-flash',
+            'gemini-2.5-flash',  # Using the stable 2.5 flash model
             generation_config=genai.types.GenerationConfig(
                 temperature=0.7,
                 max_output_tokens=8192,
-            )
+            ),
+            safety_settings=safety_settings
         )
     
     def generate_bulk_entity_data(self, document_type: str, entity_fields: List[str], count: int, language: str = 'en') -> List[Dict[str, Any]]:
@@ -421,8 +443,53 @@ Return ONLY JSON array: [{{"field1": "value1"}}]"""
         else:
             # Generate without template image (original behavior)
             response = self.model.generate_content(prompt)
-            
-        html_content = response.text.strip()
+
+        # Check if response was blocked by safety filters
+        if not response.parts:
+            # Try to get finish reason for better error message
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                finish_reason = candidate.finish_reason
+                safety_ratings = candidate.safety_ratings if hasattr(candidate, 'safety_ratings') else None
+
+                if finish_reason == 2:  # SAFETY
+                    error_msg = "Content was blocked by safety filters. "
+                    if safety_ratings:
+                        error_msg += f"Safety ratings: {safety_ratings}"
+                    print(f"⚠️  {error_msg}")
+                    print("🔄 Retrying with simplified prompt...")
+
+                    # Retry with a simpler, safer prompt
+                    simplified_prompt = f"""
+                    Create a simple HTML business document for: {document_type}
+                    Language: {language}
+
+                    Use this data:
+                    {json.dumps(entity_data, indent=2, ensure_ascii=False)}
+
+                    Requirements:
+                    - Create a professional business document
+                    - Use the provided entity data
+                    - Write all text in {language}
+                    - Return only HTML content
+                    - Make it suitable for printing on Letter size paper (8.5" x 11")
+                    - Use inline CSS for styling
+                    - Keep content professional and appropriate
+                    """
+
+                    response = self.model.generate_content(simplified_prompt)
+
+                    if not response.parts:
+                        raise ValueError(f"Content generation failed. Finish reason: {finish_reason}. Try using a different document type or simpler entity fields.")
+                else:
+                    raise ValueError(f"Content generation failed. Finish reason: {finish_reason}")
+            else:
+                raise ValueError("No response content generated. The request may have been blocked.")
+
+        try:
+            html_content = response.text.strip()
+        except Exception as e:
+            raise ValueError(f"Failed to extract text from response: {e}")
         
         # Remove markdown code blocks if present
         if html_content.startswith('```html'):
