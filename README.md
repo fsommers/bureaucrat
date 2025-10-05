@@ -1,5 +1,5 @@
-# Bureaucrat 
-## Generate Synthetic Business Documents at Scale
+# Bureaucrat: 
+## Generate Multilingual Synthetic Business Documents at Scale
 
 When working with document AI applications, it is useful to be able to generate synthetic business documents. 
 
