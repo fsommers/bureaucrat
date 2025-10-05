@@ -1,0 +1,21 @@
+{
+  "document_type": "business invoice for catering service",
+  "detected_language": "en",
+  "confidence": "high",
+  "extracted_entities": {
+    "company_name": "Gourmet Catering Co.",
+    "customer_name": "ABC Corporation",
+    "invoice_number": "INV-2024-0123",
+    "invoice_date": "January 15, 2024",
+    "service_description": "Annual company dinner event",
+    "subtotal": "$3,180.24",
+    "tax_amount": "$276.54",
+    "total_amount": "$3,456.78",
+    "payment_terms": "Net 30 days"
+  },
+  "analysis_metadata": {
+    "analyzed_at": "2024-01-15T10:30:00Z",
+    "image_size": "1200x1600",
+    "image_format": "JPEG"
+  }
+}

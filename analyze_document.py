@@ -4,7 +4,8 @@ import click
 import json
 import os
 from pathlib import Path
-from gemini_client import GeminiClient
+from ai_providers import get_ai_client
+from config import AI_PROVIDER
 
 @click.command()
 @click.option('-i', '--image', 'image_file', required=True, type=click.Path(exists=True), 
@@ -16,8 +17,8 @@ from gemini_client import GeminiClient
 def analyze_document(image_file, output_dir, output_file):
     """
     Analyze a document image to extract document type and personally identifying information.
-    
-    Uses Google Gemini Vision API to identify document type and extract entities like:
+
+    Uses AI vision capabilities to identify document type and extract entities like:
     - Personal names, addresses, phone numbers
     - Company names, addresses, websites, emails
     - Document-specific information
@@ -32,8 +33,8 @@ def analyze_document(image_file, output_dir, output_file):
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # Initialize Gemini client
-    client = GeminiClient()
+    # Initialize AI client using the provider system
+    client = get_ai_client(provider=AI_PROVIDER)
     
     try:
         # Analyze the document image

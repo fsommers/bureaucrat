@@ -7,8 +7,8 @@ import random
 import glob
 import shutil
 from typing import List, Dict, Any
-from gemini_client import GeminiClient
-from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES
+from ai_providers import get_ai_client
+from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES, AI_PROVIDER
 
 def get_available_backgrounds():
     """
@@ -152,7 +152,8 @@ def generate_documents(entity_file, document_type, language, template_image, out
         background_files = get_available_backgrounds()
         
         # Generate HTML documents
-        client = GeminiClient()
+        # Use the AI provider system for flexibility
+        client = get_ai_client(provider=AI_PROVIDER)
         generated_documents = []
         
         click.echo(f"Generating {len(entity_data_list)} HTML documents...")

@@ -1,12 +1,13 @@
 # Synthetic Document Generator
 
-A comprehensive Python program that generates synthetic business documents using Google Gemini AI for document AI training purposes. Features document analysis, multi-language support, and realistic document generation.
+A comprehensive Python program that generates synthetic business documents using AI providers (Google Gemini, with Hugging Face support coming soon) for document AI training purposes. Features document analysis, multi-language support, and realistic document generation with a unified pipeline command.
 
 ## Features
 
+- **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF
 - **Document Analysis**: Analyze existing document images to extract structure and entities
 - **Multi-Language Support**: Generate documents in 40+ languages with culturally appropriate content
-- **Google Gemini AI Integration**: Use advanced AI for synthetic entity data generation and document analysis
+- **Multiple AI Providers**: Abstraction layer supporting Google Gemini (Hugging Face coming soon)
 - **Realistic Document Generation**: HTML documents with embedded CSS optimized for US Letter-size pages
 - **Region-Specific Formatting**: Date formats, email domains, and legal text appropriate for each language/region
 - **PDF Conversion**: Multiple conversion engines for high-quality PDF output
@@ -20,10 +21,13 @@ A comprehensive Python program that generates synthetic business documents using
 pip install -r requirements.txt
 ```
 
-2. Set up your Google Gemini API key:
+2. Set up your API keys:
 ```bash
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Edit .env and add your API keys:
+# - GEMINI_API_KEY for Google Gemini (required)
+# - HUGGINGFACE_API_KEY for Hugging Face (optional, coming soon)
+# - AI_PROVIDER to choose provider (default: gemini)
 ```
 
 3. Add background images (optional):
@@ -32,7 +36,46 @@ cp .env.example .env
 # The system will randomly select different backgrounds for each document
 ```
 
-## Workflows
+## Quick Start
+
+The easiest way to generate documents is using the simple generate command that combines all steps:
+
+```bash
+# Basic usage - generates PDFs directly
+./generate -t "business invoice" -e "customer name,amount,date" -c 10
+
+# With template image for layout matching
+./generate -t "medical form" -e "patient name,doctor,diagnosis" -c 5 -i template.jpg
+
+# Generate documents in Spanish
+./generate -t "contrato de servicios" -e "cliente,monto,fecha" -c 20 -l es -o spanish_docs
+
+# From document analysis
+python analyze_document.py -i existing_document.jpg -o analysis
+./generate -a analysis/document_analysis.json -c 50
+
+# Keep intermediate files for debugging
+./generate -t "report" -e "title,author,date" -c 3 --keep-intermediates
+
+# Use different PDF converter
+./generate -t "contract" -e "party1,party2,amount" -c 10 --pdf-converter wkhtmltopdf
+```
+
+### Pipeline Options
+
+- `-t, --document-type`: Type of document (required)
+- `-e, --entity-fields`: Comma-separated entity fields (required)
+- `-c, --count`: Number of documents to generate (default: 10)
+- `-l, --language`: Language code (default: en)
+- `-a, --analysis-json`: Use analysis file instead of manual parameters
+- `-i, --template-image`: Template image for layout matching
+- `-o, --output-dir`: Output directory for PDFs (default: output)
+- `--pdf-converter`: PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
+- `--paper-size`: Paper size (Letter/A4/Legal)
+- `--keep-intermediates`: Keep entity JSON and HTML files
+- `-s, --start-index`: Starting document number (default: 1)
+
+## Advanced Workflows
 
 ### Workflow 1: AI-Powered Document Analysis (Recommended)
 
@@ -114,7 +157,61 @@ python generate_documents.py -e output/entity_data.json -i template_document.jpg
 python convert_to_pdf.py -i output
 ```
 
+## AI Provider Configuration
+
+The system supports multiple AI providers through an abstraction layer:
+
+### Currently Supported
+- **Google Gemini** (default) - Full support for text and vision tasks
+
+### Coming Soon
+- **Hugging Face** - Support for open-source models
+
+### Configuration
+Set your preferred provider in `.env`:
+```bash
+# Choose provider: 'gemini' or 'huggingface' (coming soon)
+AI_PROVIDER=gemini
+
+# Google Gemini settings
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-2.5-flash  # Optional, defaults to gemini-2.5-flash
+
+# Hugging Face settings (coming soon)
+HUGGINGFACE_API_KEY=your_api_key_here
+HUGGINGFACE_MODEL=meta-llama/Llama-3.2-11B-Vision-Instruct
+```
+
+### Testing Providers
+```bash
+# Test the current provider configuration
+python check_providers.py --provider gemini
+
+# Test with entity generation
+python check_providers.py --provider gemini --test-generation
+```
+
 ## Commands Reference
+
+### generate - Primary Command
+
+Complete pipeline that generates PDFs in one command.
+
+```bash
+./generate [OPTIONS]
+```
+
+**Key Parameters:**
+- `-t, --document-type TEXT`: Document type (required)
+- `-e, --entity-fields TEXT`: Comma-separated fields (required)
+- `-c, --count INTEGER`: Number of documents (default: 10)
+- `-l, --language TEXT`: Language code (default: en)
+- `-a, --analysis-json PATH`: Use analysis file from analyze_document.py
+- `-i, --template-image PATH`: Template image for layout
+- `-o, --output-dir TEXT`: Output directory (default: output)
+- `--pdf-converter`: Choose PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
+- `--keep-intermediates`: Keep entity JSON and HTML files
+- `-s, --start-index INTEGER`: Starting document number (default: 1)
 
 ### analyze_document.py
 Analyze document images to extract structure and entities.
@@ -246,8 +343,23 @@ Convert HTML documents to PDF format.
 
 ## Example Workflows
 
-### Complete AI-Powered Workflow
+### Quick Start Examples
 ```bash
+# Generate 10 invoices with PDFs in one command
+./generate -t "business invoice" -e "customer name,invoice number,amount,date" -c 10
+
+# Generate Thai medical forms from template
+./generate -t "แบบฟอร์มการแพทย์" -e "ชื่อผู้ป่วย,หมายเลขบัตร,วันที่" -c 20 -l th
+
+# Generate from analyzed document
+python analyze_document.py -i existing_invoice.png -o analysis
+./generate -a analysis/document_analysis.json -c 50
+```
+
+### Complete AI-Powered Workflow (Step-by-Step)
+```bash
+# If you need more control, run each step separately:
+
 # 1. Analyze an existing Thai medical form
 python analyze_document.py -i thai_medical_form.jpg -o analysis
 
@@ -260,7 +372,7 @@ python generate_documents.py -e thai_medical/entity_data.json -o thai_medical
 # 4. Convert to PDF with authentic backgrounds
 python convert_to_pdf.py -i thai_medical
 
-# Result: 50 realistic Thai medical forms with proper formatting, 
+# Result: 50 realistic Thai medical forms with proper formatting,
 # Buddhist Era dates, Thai email domains, and PDPA compliance text
 ```
 

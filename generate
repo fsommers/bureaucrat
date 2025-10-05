@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+
+import click
+import os
+import json
+import tempfile
+from pathlib import Path
+from config import DEFAULT_OUTPUT_DIR, DEFAULT_DOCUMENT_COUNT, LANGUAGE_CODES
+import subprocess
+import sys
+
+@click.command()
+@click.option('--document-type', '-t', required=True,
+              help='Type of document to generate (e.g., "business invoice for catering party")')
+@click.option('--entity-fields', '-e', required=True,
+              help='Comma-separated list of entity fields (e.g., "customer name,employee name,date")')
+@click.option('--count', '-c', default=DEFAULT_DOCUMENT_COUNT, type=int,
+              help=f'Number of documents to generate (default: {DEFAULT_DOCUMENT_COUNT})')
+@click.option('--language', '-l', default='en',
+              help=f'Language code for document generation (default: en). Supported: {", ".join(sorted(LANGUAGE_CODES.keys()))}')
+@click.option('--analysis-json', '-a', type=click.Path(exists=True),
+              help='JSON file from analyze_document.py to use instead of manual parameters')
+@click.option('--template-image', '-i', type=click.Path(exists=True),
+              help='Path to image file to use as template for document layout')
+@click.option('--output-dir', '-o', default=DEFAULT_OUTPUT_DIR,
+              help=f'Output directory for final PDFs (default: {DEFAULT_OUTPUT_DIR})')
+@click.option('--pdf-converter', default='weasyprint',
+              type=click.Choice(['weasyprint', 'wkhtmltopdf', 'playwright', 'chrome']),
+              help='PDF conversion engine to use (default: weasyprint)')
+@click.option('--paper-size', default='Letter',
+              type=click.Choice(['Letter', 'A4', 'Legal']),
+              help='Paper size for PDF output (default: Letter)')
+@click.option('--keep-intermediates', is_flag=True,
+              help='Keep intermediate files (entity JSON and HTML files)')
+@click.option('--start-index', '-s', default=1, type=int,
+              help='Starting index for document numbering (default: 1)')
+def main(document_type, entity_fields, count, language, analysis_json,
+         template_image, output_dir, pdf_converter, paper_size,
+         keep_intermediates, start_index):
+    """
+    Complete pipeline: Generate entities → Create HTML documents → Convert to PDFs.
+
+    This command runs the complete document generation pipeline in one go,
+    producing PDF documents as the final output.
+
+    Examples:
+
+    Basic usage:
+        ./generate -t "business invoice" -e "customer name,amount" -c 10
+
+    With template image:
+        ./generate -t "medical form" -e "patient name,date" -c 5 -i template.jpg
+
+    From document analysis:
+        ./generate -a analysis.json -c 20
+
+    With language and custom output:
+        ./generate -t "contrato" -e "nombre,fecha" -c 15 -l es -o spanish_docs
+    """
+
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Create temporary directory for intermediate files if not keeping them
+    if not keep_intermediates:
+        temp_dir = tempfile.mkdtemp(prefix='docgen_')
+        intermediate_dir = temp_dir
+        click.echo(f"📁 Using temporary directory for intermediates: {temp_dir}")
+    else:
+        intermediate_dir = output_dir
+        click.echo(f"📁 Keeping intermediate files in: {output_dir}")
+
+    try:
+        # ============================================
+        # STEP 1: Generate Entity Data
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("📊 STEP 1/3: Generating Entity Data")
+        click.echo("="*60)
+
+        entity_file = os.path.join(intermediate_dir, 'entity_data.json')
+
+        cmd = [sys.executable, 'generate_entities.py']
+
+        if analysis_json:
+            cmd.extend(['-a', analysis_json])
+        else:
+            cmd.extend(['-t', document_type])
+            cmd.extend(['-e', entity_fields])
+
+        cmd.extend(['-c', str(count)])
+        cmd.extend(['-l', language])
+        cmd.extend(['-o', intermediate_dir])
+        cmd.extend(['-f', 'entity_data.json'])
+
+        click.echo(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            click.echo(f"❌ Entity generation failed: {result.stderr}")
+            return 1
+
+        click.echo(result.stdout)
+
+        # Load entity data to get document type and language if from analysis
+        with open(entity_file, 'r', encoding='utf-8') as f:
+            entity_data = json.load(f)
+
+        # If using analysis JSON, extract document type and language
+        if analysis_json and entity_data:
+            if '_document_type' in entity_data[0]:
+                document_type = entity_data[0]['_document_type']
+            if '_language' in entity_data[0]:
+                language = entity_data[0]['_language']
+
+        # ============================================
+        # STEP 2: Generate HTML Documents
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("📝 STEP 2/3: Generating HTML Documents")
+        click.echo("="*60)
+
+        cmd = [sys.executable, 'generate_documents.py']
+        cmd.extend(['-e', entity_file])
+
+        if document_type:
+            cmd.extend(['-t', document_type])
+        cmd.extend(['-l', language])
+
+        if template_image:
+            cmd.extend(['-i', template_image])
+
+        cmd.extend(['-o', intermediate_dir])
+        cmd.extend(['-s', str(start_index)])
+
+        click.echo(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            click.echo(f"❌ Document generation failed: {result.stderr}")
+            return 1
+
+        click.echo(result.stdout)
+
+        # ============================================
+        # STEP 3: Convert to PDF
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("🖨️  STEP 3/3: Converting to PDF")
+        click.echo("="*60)
+
+        cmd = [sys.executable, 'convert_to_pdf.py']
+        cmd.extend(['-i', intermediate_dir])
+
+        # Only specify different output dir if not using intermediate dir
+        if intermediate_dir != output_dir:
+            cmd.extend(['-o', output_dir])
+
+        cmd.extend(['-c', pdf_converter])
+        cmd.extend(['-p', paper_size])
+
+        if keep_intermediates:
+            cmd.append('--keep-html')
+
+        click.echo(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            click.echo(f"❌ PDF conversion failed: {result.stderr}")
+            return 1
+
+        click.echo(result.stdout)
+
+        # ============================================
+        # CLEANUP & SUMMARY
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("✅ PIPELINE COMPLETED SUCCESSFULLY!")
+        click.echo("="*60)
+
+        # Count generated PDFs
+        pdf_files = list(Path(output_dir).glob('*.pdf'))
+        click.echo(f"\n📊 Summary:")
+        click.echo(f"  • Generated {len(pdf_files)} PDF documents")
+        click.echo(f"  • Document Type: {document_type}")
+        click.echo(f"  • Language: {language}")
+        click.echo(f"  • Output Directory: {os.path.abspath(output_dir)}")
+
+        if not keep_intermediates and os.path.exists(temp_dir):
+            # Clean up temporary directory
+            import shutil
+            shutil.rmtree(temp_dir)
+            click.echo(f"  • Cleaned up temporary files")
+        else:
+            click.echo(f"  • Intermediate files kept in: {intermediate_dir}")
+
+        # List first few PDFs
+        if pdf_files:
+            click.echo(f"\n📄 Generated PDFs:")
+            for pdf in sorted(pdf_files)[:5]:
+                click.echo(f"  • {pdf.name}")
+            if len(pdf_files) > 5:
+                click.echo(f"  • ... and {len(pdf_files) - 5} more")
+
+        return 0
+
+    except Exception as e:
+        click.echo(f"\n❌ Pipeline error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1
+    finally:
+        # Always clean up temp directory on error if it exists
+        if not keep_intermediates and 'temp_dir' in locals() and os.path.exists(temp_dir):
+            import shutil
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+
+if __name__ == '__main__':
+    main()
