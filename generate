@@ -34,9 +34,11 @@ import sys
               help='Keep intermediate files (entity JSON and HTML files)')
 @click.option('--start-index', '-s', default=1, type=int,
               help='Starting index for document numbering (default: 1)')
+@click.option('--instructions', '-I', default=None, type=str,
+              help='Additional instructions for the LLM when generating documents (e.g., "Include legal language for Germany")')
 def main(document_type, entity_fields, count, language, analysis_json,
          template_image, output_dir, pdf_converter, paper_size,
-         keep_intermediates, start_index):
+         keep_intermediates, start_index, instructions):
     """
     Complete pipeline: Generate entities → Create HTML documents → Convert to PDFs.
 
@@ -129,6 +131,9 @@ def main(document_type, entity_fields, count, language, analysis_json,
 
         if template_image:
             cmd.extend(['-i', template_image])
+
+        if instructions:
+            cmd.extend(['-I', instructions])
 
         cmd.extend(['-o', intermediate_dir])
         cmd.extend(['-s', str(start_index)])

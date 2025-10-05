@@ -67,7 +67,9 @@ def copy_background_for_document(background_files, output_dir, doc_number):
               help=f'Output directory for HTML documents (default: {DEFAULT_OUTPUT_DIR})')
 @click.option('--start-index', '-s', default=1, type=int,
               help='Starting index for document numbering (default: 1)')
-def generate_documents(entity_file, document_type, language, template_image, output_dir, start_index):
+@click.option('--instructions', '-I', default=None, type=str,
+              help='Additional instructions for the LLM when generating documents (e.g., "Include legal language for Germany")')
+def generate_documents(entity_file, document_type, language, template_image, output_dir, start_index, instructions):
     """
     Generate HTML documents using pre-generated entity data.
     
@@ -143,6 +145,8 @@ def generate_documents(entity_file, document_type, language, template_image, out
     click.echo(f"Language: {language}")
     if template_image:
         click.echo(f"Template Image: {template_image}")
+    if instructions:
+        click.echo(f"Custom Instructions: {instructions}")
     click.echo(f"Output Directory: {output_dir}")
     click.echo(f"Starting Index: {start_index}")
     click.echo()
@@ -167,7 +171,7 @@ def generate_documents(entity_file, document_type, language, template_image, out
             
             # Generate document with specific entity data
             complete_html = client.generate_document_with_data(
-                document_type, entity_data, language, template_image
+                document_type, entity_data, language, template_image, instructions
             )
             
             # Add background styling and UTF-8 support
