@@ -3,7 +3,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# AI Provider Configuration
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'gemini')  # Default to Gemini
+
+# Gemini Configuration
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+
+# Hugging Face Configuration
+HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY')
+HUGGINGFACE_MODEL = os.getenv('HUGGINGFACE_MODEL', 'meta-llama/Llama-3.2-11B-Vision-Instruct')
+HUGGINGFACE_ENDPOINT = os.getenv('HUGGINGFACE_ENDPOINT')  # Optional custom endpoint
+
+# General AI Configuration
+TEMPERATURE = float(os.getenv('TEMPERATURE', '0.7'))
+MAX_TOKENS = int(os.getenv('MAX_TOKENS', '8192'))
 
 # Default settings
 DEFAULT_OUTPUT_DIR = 'output'

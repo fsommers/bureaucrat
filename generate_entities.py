@@ -3,8 +3,8 @@
 import click
 import os
 import json
-from gemini_client import GeminiClient
-from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES
+from ai_providers import get_ai_client
+from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES, AI_PROVIDER
 
 @click.command()
 @click.option('--document-type', '-t', 
@@ -23,8 +23,8 @@ from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES
               help='Output JSON filename (default: entity_data.json)')
 def generate_entities(document_type, entity_fields, count, language, analysis_json, output_dir, output_file):
     """
-    Generate synthetic entity data using Google Gemini AI.
-    
+    Generate synthetic entity data using AI providers.
+
     This command generates bulk entity data that can later be used to create HTML documents.
     
     You can provide parameters manually OR use JSON output from analyze_document.py:
@@ -117,7 +117,8 @@ def generate_entities(document_type, entity_fields, count, language, analysis_js
         # Generate entity data
         click.echo(f"Generating {count} sets of entity data...")
         
-        client = GeminiClient()
+        # Use the AI provider system for flexibility
+        client = get_ai_client(provider=AI_PROVIDER)
         entity_data_list = client.generate_bulk_entity_data(document_type, fields, count, language)
         
         # Save entity data JSON

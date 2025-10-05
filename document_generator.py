@@ -3,12 +3,13 @@ import json
 import re
 from typing import Dict, List, Any
 from jinja2 import Template
-from gemini_client import GeminiClient
-from config import DEFAULT_OUTPUT_DIR
+from ai_providers import get_ai_client
+from config import DEFAULT_OUTPUT_DIR, AI_PROVIDER
 
 class DocumentGenerator:
     def __init__(self):
-        self.gemini_client = GeminiClient()
+        # Use the AI provider system for flexibility
+        self.ai_client = get_ai_client(provider=AI_PROVIDER)
         self.generated_data = []
     
     
@@ -25,7 +26,7 @@ class DocumentGenerator:
         print(f"Step 1: Generating {count} sets of entity data...")
         
         # Step 1: Generate bulk entity data
-        entity_data_list = self.gemini_client.generate_bulk_entity_data(
+        entity_data_list = self.ai_client.generate_bulk_entity_data(
             document_type, entity_fields, count, language
         )
         
@@ -40,7 +41,7 @@ class DocumentGenerator:
         # Step 2: Generate HTML documents using each entity data record
         for i, entity_data in enumerate(entity_data_list):
             # Generate document with specific entity data
-            complete_html = self.gemini_client.generate_document_with_data(
+            complete_html = self.ai_client.generate_document_with_data(
                 document_type, entity_data, language
             )
             

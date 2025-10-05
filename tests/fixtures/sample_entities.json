@@ -1,0 +1,29 @@
+[
+  {
+    "customer_name": "Acme Corporation",
+    "invoice_number": "INV-2024-001",
+    "total_amount": "$5,678.90",
+    "service_date": "2024-01-15",
+    "service_description": "Catering for corporate event",
+    "_document_type": "business invoice for catering service",
+    "_language": "en"
+  },
+  {
+    "customer_name": "Global Industries Ltd.",
+    "invoice_number": "INV-2024-002",
+    "total_amount": "$3,456.78",
+    "service_date": "2024-01-20",
+    "service_description": "Birthday party catering",
+    "_document_type": "business invoice for catering service",
+    "_language": "en"
+  },
+  {
+    "customer_name": "Tech Solutions Inc.",
+    "invoice_number": "INV-2024-003",
+    "total_amount": "$8,901.23",
+    "service_date": "2024-01-25",
+    "service_description": "Wedding reception catering",
+    "_document_type": "business invoice for catering service",
+    "_language": "en"
+  }
+]
