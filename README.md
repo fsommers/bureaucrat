@@ -15,11 +15,13 @@ For example, this command will result in 10 medical intake forms being generated
  -e "medical office name, intake date, patient name, patient date of birth, patient sex, medical insurance company name, insurance policy number, list of prexisting conditions, list of allergies" -c 3
 ```
 
-<div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
-  <img src="assets/medical1.png" alt="Image 1" style="max-width: 30%; min-width: 200px;">
-  <img src="assets/medical3.png" alt="Image 2" style="max-width: 30%; min-width: 200px;">
-  <img src="assets/medical2.png" alt="Image 3" style="max-width: 30%; min-width: 200px;">
-</div>
+<table>
+<tr>
+<td><img src="assets/medical1.png" alt="Medical Form 1" width="250"></td>
+<td><img src="assets/medical3.png" alt="Medical Form 2" width="250"></td>
+<td><img src="assets/medical2.png" alt="Medical Form 3" width="250"></td>
+</tr>
+</table>
 
 The last document illustrates the ability to render document backgrounds that mimic scanned or photographed paper documents.
 
@@ -53,15 +55,18 @@ You can do the same in other languages. For example, to generate 5 unique German
   -I "Generate and include other data items, as appropriate for a rental agreement in German. Include legal language appropriate for a German apartment rental agreement, including language required in the jurisdiction specified in the data."
 ```
 
-<div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
-  <img src="assets/wohnungsmie-0.png" alt="Image 1" style="max-width: 30%; min-width: 200px;">
-  <img src="assets/wohnungsmie-1.png" alt="Image 2" style="max-width: 30%; min-width: 200px;">
-  <img src="assets/wohnungsmie-2.png" alt="Image 3" style="max-width: 30%; min-width: 200px;">
-</div>
-<div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
-  <img src="assets/wohnungsmie-3.png" alt="Image 1" style="max-width: 30%; min-width: 200px;">
-  <img src="assets/wohnungsmie-4.png" alt="Image 2" style="max-width: 30%; min-width: 200px;">
-</div>
+<table>
+<tr>
+<td><img src="assets/wohnungsmie-0.png" alt="Rental Agreement 1" width="250"></td>
+<td><img src="assets/wohnungsmie-1.png" alt="Rental Agreement 2" width="250"></td>
+<td><img src="assets/wohnungsmie-2.png" alt="Rental Agreement 3" width="250"></td>
+</tr>
+<tr>
+<td><img src="assets/wohnungsmie-3.png" alt="Rental Agreement 4" width="250"></td>
+<td><img src="assets/wohnungsmie-4.png" alt="Rental Agreement 5" width="250"></td>
+<td></td>
+</tr>
+</table>
 
 With the `-I` parameter, you can specify optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. 
 
@@ -98,10 +103,12 @@ Other character sets are also supported. This is an invoice for a custom 1-week 
  -I "Include legal text in Thai that is appropriate and customary for custom tour package"
 ```
 
-<div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
-  <img src="assets/thaitour-0.png" alt="Image 1" style="max-width: 45%; min-width: 300px;">
-  <img src="assets/thaitour-1.png" alt="Image 2" style="max-width: 45%; min-width: 300px;">
-</div>
+<table>
+<tr>
+<td><img src="assets/thaitour-0.png" alt="Thai Tour Invoice 1" width="350"></td>
+<td><img src="assets/thaitour-1.png" alt="Thai Tour Invoice 2" width="350"></td>
+</tr>
+</table>
 
 The years are stated in the Buddhist year, customary in Thai business documents, Thai names and addresses are used, and the tour cost reflects a realistic amount in Thai baht.
 
