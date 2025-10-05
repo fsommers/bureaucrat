@@ -153,11 +153,12 @@ class GeminiProvider(AIProvider):
         document_type: str,
         entity_data: Dict[str, str],
         language: str = 'en',
-        template_image_path: Optional[str] = None
+        template_image_path: Optional[str] = None,
+        instructions: Optional[str] = None
     ) -> str:
         """Generate HTML document using Gemini."""
         prompt = self._create_document_generation_prompt(
-            document_type, entity_data, language, template_image_path
+            document_type, entity_data, language, template_image_path, instructions
         )
 
         # Generate content with or without template image
@@ -233,7 +234,7 @@ CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra t
 
     def _create_document_generation_prompt(
         self, document_type: str, entity_data: Dict[str, str],
-        language: str, template_image_path: Optional[str]
+        language: str, template_image_path: Optional[str], instructions: Optional[str]
     ) -> str:
         """Create prompt for document generation."""
         template_instruction = ""
@@ -244,6 +245,14 @@ CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra t
         - ANALYZE the template image carefully and replicate the structure
         - NEVER use any personal information from the template image
         - Only replicate the LAYOUT, STRUCTURE, and VISUAL DESIGN
+        """
+
+        additional_instructions = ""
+        if instructions:
+            additional_instructions = f"""
+
+        ADDITIONAL INSTRUCTIONS:
+        {instructions}
         """
 
         return f"""
@@ -261,6 +270,7 @@ CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra t
         - Design for printing on 8.5" x 11" Letter-size paper
         - Use professional styling with CSS
         - Return only HTML content without markdown formatting
+        {additional_instructions}
         """
 
     def _create_analysis_prompt(self) -> str:

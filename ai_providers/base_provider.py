@@ -92,7 +92,8 @@ class AIProvider(ABC):
         document_type: str,
         entity_data: Dict[str, str],
         language: str = 'en',
-        template_image_path: Optional[str] = None
+        template_image_path: Optional[str] = None,
+        instructions: Optional[str] = None
     ) -> str:
         """
         Generate an HTML document using provided entity data.
@@ -102,6 +103,7 @@ class AIProvider(ABC):
             entity_data: Dictionary of entity field values
             language: Language code for the document
             template_image_path: Optional path to template image for layout matching
+            instructions: Optional additional instructions for document generation
 
         Returns:
             HTML content as string
