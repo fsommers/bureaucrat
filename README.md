@@ -2,7 +2,7 @@
 <div align="left"><sup><i>Watanabe, the hero of Akira Kurosawa's Ikiru, as edited by Qwen2.5-Max.</i></sup></div>
 
 # Bureaucrat:
-## A Multilingual Synthetic Business Documents Generator
+## A Multilingual Synthetic Business Document Generator
 
 When working with document AI applications, it is useful to be able to generate synthetic business documents. 
 
@@ -10,13 +10,13 @@ With minimal prompting, *Bureaucrat* generates documents, such as invoices, cont
 
 *Bureaucrat* operates in two modes: 
 
-(1) In `generate` mode, you specify what types of documents you desire, and the system comes up with with the document designs and data for you;
+(1) In `generate` mode, you specify what types of documents you desire, and the system comes up with with the document designs and data for you.
 
-(2) In `clone` mode, you specify an existing business document, and the system attempts to "clone" that document, replacing private data with synthetic data, but keeping the original document's design.
+(2) In `clone` mode, you specify an existing business document, and the system attempts to "clone" that document, identifying private data in that document, replacing private data with synthetic data, but keeping close to the original document's design.
 
 ## Generating Synthetic Business Documents
 
-The following command results in 10 medical intake forms PDFs, with each form having different layouts and different data:
+The following command results in 10 medical intake form PDFs, with each form having different layouts and different data:
 
 ```
 ./generate \
@@ -49,7 +49,7 @@ The result of this pipeline is 3 PDF documents for a medical office intake form:
 </tr>
 </table>
 
-The last document illustrates the ability to render document backgrounds that mimic scanned or photographed paper documents. (In this case, perhaps the office was a bit hasty with blood samples while performing tests...)
+The last document illustrates the ability to render document backgrounds that mimic scanned or photographed paper documents. (In this case, perhaps the office was a bit hasty with blood samples...)
 
 For each document, you get a data file, which is useful in supervised training situations:
 
@@ -106,9 +106,9 @@ You can generate documents in other languages. The following generates 5 unique 
 
 `-l` specifies the desired language;
 
-`-I` parameter specify optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. Mix-and-match of languages is supported, based on the underlying LLM's capabilities.
+`-I` specify optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. Mix-and-match of languages is supported, based on the underlying LLM's capabilities.
 
-The resulting generated data is region-appropriate, such as using German(-sounding) names, German addresses, currency formatting, phone numbers, and emails. The rental amount is also in a realistic range. (Well, maybe not for Berlin.)
+The resulting generated data is region-appropriate, such as using German(-sounding) names, German addresses, currency formatting, phone numbers, and emails. The rental amount is also in a realistic range. (Well, maybe not for Berlin!)
 
 ```
 {
@@ -195,7 +195,7 @@ In `clone` mode you can take an existing business document, possibly containing 
 
 * Replace the PII data with synthetic data
 * Clone the layout of the existing document
-* Following that layout, generate new documents from the existing document, but based on the synthetically generated data. Hence, *clone*: Same form, different data
+* Following that layout, generate new documents from the existing document, but based on the synthetically generated data.
 
 For example, suppose the medical intake form above were a real document used at a doctor's office:
 
@@ -205,7 +205,7 @@ For example, suppose the medical intake form above were a real document used at 
 </tr>
 </table>
 
-The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. In `clone` mode, we can:
+The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. `clone` mode can:
 
 * detect these items on the document, 
 * generate similar but synthetic data, 
@@ -213,7 +213,7 @@ The patient name, date of birth, policy number, preexisting conditions, etc. are
 * create 3 newly generated synthetic patient intake forms:
 
 ```
-./clone -i output/medical_intake_form.png -c 3
+./clone -i medical_intake_form.png -c 3
 ```
 
 This pipeline results in 3 new documents, closely mirroring the original document's layout, but the sensitive data being replaced with synthetic versions:
@@ -226,7 +226,7 @@ This pipeline results in 3 new documents, closely mirroring the original documen
 </tr>
 </table>
 
-The system detected the PII in the original document:
+In the `clone` pipeline, system detects the PII in the original document, and can optionally save this extracted information in a file:
 
 ```
 {
@@ -252,13 +252,13 @@ The system detected the PII in the original document:
 }
 ```
 
-Based on the detected PII fields, the *bureaucrat* generated synthetic data and used that to populate the newly generated documents.
+Based on the detected PII fields, the *bureaucrat*'s `clone` mode generated synthetic data and used that to populate the newly generated documents.
 
-This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents, due to privacy reasons. With *bureaucrat*'s `clone` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
+This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents for system training or configuration, due to privacy reasons. With *bureaucrat*'s `clone` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
 
 ## Features
 
-- **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF
+- **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF. You can also invoke and customize individuals steps in the pipeline.
 - **Multiple AI Providers**: Abstraction layer supporting Google Gemini and Hugging Face
 - **Multi-Language Support**: Generate documents in 40+ languages with culturally appropriate content. 
 - **Region-Specific Formatting**: Date formats, email domains, and legal text appropriate for each language/region. For example, if you specify Thai as the desired language, it will attempt to generate Thai person and company names, Thai addresses, and Thai currency amounts, and use Thai legal context for appropriate notices and disclosures, etc.
@@ -267,10 +267,23 @@ This is useful when working with enterprise customers that want to apply documen
 - **Paper Texture Backgrounds**: Realistic paper backgrounds for authentic printed/scanned document appearance
 - **Mimic an Existing Document**: Analyze existing document images to extract structure and entities, and create similar-looking documents but with synthetic data. You can think of this as a sort of PII anonymizer. 
 
+## LLM Provider Architecture
+Bureaucrat uses a provider mechanism to connect a backend LLM to generate realistic data, as well as to generate richly formatted business documents. 
 
-Bureaucrat uses a provider mechanism to connect a backend LLM to generate realistic data, as well as to generate richly formatted business documents. It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. 
+It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. 
 
-One immediately useful case for synthetic business documents is for demos: Real business documents contains ample amounts of personal data (PII), making it unacceptable to use a company's actual documents for testing and benchmarking document intelligence applications. At the same time, such benchmarking should be performed on a document dataset that closely mirrors a company's actual document data distribution, including the types of documents and entities, as well as general language, contained in the real-world business documents.
+## TL;DR
+
+### Mirroring document data distributions
+One immediately useful case for synthetic business documents is for demos: Real business documents contains ample amounts of personal data (PII), making it unacceptable to use a company's actual documents for testing and benchmarking document intelligence applications. 
+
+At the same time, such benchmarking should be performed on a document dataset that closely mirrors a company's actual document data distribution, including the types of documents and entities, as well as general language, contained in the real-world business documents.
+
+In a real-world scenario, document dataset distribution means a distribution of both visual and textual document features. In Document AI applications, it is not enough to work with OCR-extracted textual document content, since (a) You can have documents whose textual content is very similar but the business-relevant document types are actually different, and (b) text-only analysis loses the rich context of text elements inside a heavily formatted business for, example. 
+
+Thus, to mimic a document data distribution, you need to create synthetic data sets that mirror the text+visual appearance of the original business document dataset. 
+
+How to do such document dataset mirroring well and at scale is a current active research area, but this is a critical enabler for document AI implementations.
 
 ## Setup
 
