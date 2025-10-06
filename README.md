@@ -200,7 +200,7 @@ For example, suppose the medical intake form above were a real document used at 
 
 <table>
 <tr>
-<td><img src="assets/medical1.png" alt="Thai Tour Invoice 1" width="450"></td>
+<td><img src="assets/medical1.png" alt="Medical Invoice 1" width="450"></td>
 </tr>
 </table>
 
@@ -826,4 +826,16 @@ playwright>=1.40.0  # Alternative
 
 ## License
 
-This project is designed for document AI training and research purposes.
+Copyright 2025 Frank Sommers
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
