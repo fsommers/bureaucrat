@@ -20,8 +20,6 @@ import sys
               help=f'Language code for document generation (default: en). Supported: {", ".join(sorted(LANGUAGE_CODES.keys()))}')
 @click.option('--analysis-json', '-a', type=click.Path(exists=True),
               help='JSON file from analyze_document.py to use instead of manual parameters')
-@click.option('--template-image', '-i', type=click.Path(exists=True),
-              help='Path to image file to use as template for document layout')
 @click.option('--output-dir', '-o', default=DEFAULT_OUTPUT_DIR,
               help=f'Output directory for final PDFs (default: {DEFAULT_OUTPUT_DIR})')
 @click.option('--pdf-converter', default='weasyprint',
@@ -37,27 +35,29 @@ import sys
 @click.option('--instructions', '-I', default=None, type=str,
               help='Additional instructions for the LLM when generating documents (e.g., "Include legal language for Germany")')
 def main(document_type, entity_fields, count, language, analysis_json,
-         template_image, output_dir, pdf_converter, paper_size,
+         output_dir, pdf_converter, paper_size,
          keep_intermediates, start_index, instructions):
     """
     Complete pipeline: Generate entities → Create HTML documents → Convert to PDFs.
 
     This command runs the complete document generation pipeline in one go,
-    producing PDF documents as the final output.
+    producing PDF documents as the final output. The generate command creates
+    documents with AI-generated layouts. Use the 'clone' command if you want
+    to match an existing document's layout.
 
     Examples:
 
     Basic usage:
         ./generate -t "business invoice" -e "customer name,amount" -c 10
 
-    With template image:
-        ./generate -t "medical form" -e "patient name,date" -c 5 -i template.jpg
-
     From document analysis:
         ./generate -a analysis.json -c 20
 
     With language and custom output:
         ./generate -t "contrato" -e "nombre,fecha" -c 15 -l es -o spanish_docs
+
+    With custom instructions:
+        ./generate -t "rental agreement" -e "tenant,landlord,rent" -c 5 -I "Include California law"
     """
 
     # Create output directory
@@ -128,9 +128,6 @@ def main(document_type, entity_fields, count, language, analysis_json,
         if document_type:
             cmd.extend(['-t', document_type])
         cmd.extend(['-l', language])
-
-        if template_image:
-            cmd.extend(['-i', template_image])
 
         if instructions:
             cmd.extend(['-I', instructions])

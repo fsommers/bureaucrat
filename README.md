@@ -2,7 +2,7 @@
 <div align="left"><sup><i>Watanabe, the hero of Akira Kurosawa's Ikiru, as edited by Qwen2.5-Max.</i></sup></div>
 
 # Bureaucrat:
-## A Multilingual Synthetic Business Documents Generator
+## A Multilingual Synthetic Business Document Generator
 
 When working with document AI applications, it is useful to be able to generate synthetic business documents. 
 
@@ -10,13 +10,13 @@ With minimal prompting, *Bureaucrat* generates documents, such as invoices, cont
 
 *Bureaucrat* operates in two modes: 
 
-(1) In `generate` mode, you specify what types of documents you desire, and the system comes up with with the document designs and data for you;
+(1) In `generate` mode, you specify what types of documents you desire, and the system comes up with with the document designs and data for you.
 
-(2) In `homoform` mode, you specify an existing business document, and the system attempts to "clone" that document, replacing private data with synthetic data, but keeping the original document's design.
+(2) In `clone` mode, you specify an existing business document, and the system attempts to "clone" that document: It identifies private data in that document, replaces private data with synthetic data, but keeps close to the original document's design.
 
 ## Generating Synthetic Business Documents
 
-The following command results in 10 medical intake forms PDFs, with each form having different layouts and different data:
+The following command results in 10 medical intake form PDFs, with each form having different layouts and different data:
 
 ```
 ./generate \
@@ -49,7 +49,7 @@ The result of this pipeline is 3 PDF documents for a medical office intake form:
 </tr>
 </table>
 
-The last document illustrates the ability to render document backgrounds that mimic scanned or photographed paper documents. (In this case, perhaps the office was a bit hasty with blood samples while performing tests...)
+The last document illustrates the ability to render document backgrounds that mimic scanned or photographed paper documents. (In this case, perhaps the office was a bit hasty with blood samples...)
 
 For each document, you get a data file, which is useful in supervised training situations:
 
@@ -106,9 +106,9 @@ You can generate documents in other languages. The following generates 5 unique 
 
 `-l` specifies the desired language;
 
-`-I` parameter specify optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. Mix-and-match of languages is supported, based on the underlying LLM's capabilities.
+`-I` specify optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. Mix-and-match of languages is supported, based on the underlying LLM's capabilities.
 
-The resulting generated data is region-appropriate, such as using German(-sounding) names, German addresses, currency formatting, phone numbers, and emails. The rental amount is also in a realistic range. (Well, maybe not for Berlin.)
+The resulting generated data is region-appropriate, such as using German(-sounding) names, German addresses, currency formatting, phone numbers, and emails. The rental amount is also in a realistic range:
 
 ```
 {
@@ -188,14 +188,13 @@ The years are stated in the Buddhist year, customary in Thai business documents,
   }
 ```
 
-## "Homoform" mode: 
-### Clone and Anonymize Existing Business Documents
+## Clone and Anonymize Existing Business Documents
 
-In `homoform` mode you can take an existing business document, possibly containing sensitive PII data, and: 
+In `clone` mode you can take an existing business document, possibly containing sensitive PII data, and: 
 
 * Replace the PII data with synthetic data
 * Clone the layout of the existing document
-* Following that layout, generate new documents from the existing document, but based on the synthetically generated data. Hence, *homoform*: Same form, different data
+* Following that layout, generate new documents from the existing document, but based on the synthetically generated data.
 
 For example, suppose the medical intake form above were a real document used at a doctor's office:
 
@@ -205,7 +204,7 @@ For example, suppose the medical intake form above were a real document used at 
 </tr>
 </table>
 
-The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. In `homoform` mode, we can:
+The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. `clone` mode can:
 
 * detect these items on the document, 
 * generate similar but synthetic data, 
@@ -213,20 +212,20 @@ The patient name, date of birth, policy number, preexisting conditions, etc. are
 * create 3 newly generated synthetic patient intake forms:
 
 ```
-./homoform -i output/medical_intake_form.png -c 3
+./clone -i medical_intake_form.png -c 3
 ```
 
 This pipeline results in 3 new documents, closely mirroring the original document's layout, but the sensitive data being replaced with synthetic versions:
 
 <table>
 <tr>
-<td><img src="assets/medical_int_homoform2.png" alt="Medical Form 1" width="250"></td>
-<td><img src="assets/medical_int_homoform.png" alt="Medical Form 2" width="250"></td>
-<td><img src="assets/medical_int_homoform5.png" alt="Medical Form 3" width="250"></td>
+<td><img src="assets/medical_int_clone2.png" alt="Medical Form 1" width="250"></td>
+<td><img src="assets/medical_int_clone.png" alt="Medical Form 2" width="250"></td>
+<td><img src="assets/medical_int_clone5.png" alt="Medical Form 3" width="250"></td>
 </tr>
 </table>
 
-The system detected the PII in the original document:
+In the `clone` pipeline, the system detects the PII in the original document, and can optionally save this extracted information in a file:
 
 ```
 {
@@ -252,13 +251,13 @@ The system detected the PII in the original document:
 }
 ```
 
-Based on the detected PII fields, the *bureaucrat* generated synthetic data and used that to populate the newly generated documents.
+Based on the detected PII fields, *bureaucrat*'s `clone` mode generated synthetic data and used that to populate the newly generated documents.
 
-This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents, due to privacy reasons. With *bureaucrat*'s `homoform` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
+This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents for system training or configuration, due to privacy reasons. With *bureaucrat*'s `clone` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
 
 ## Features
 
-- **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF
+- **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF. You can also invoke and customize individuals steps in the pipeline.
 - **Multiple AI Providers**: Abstraction layer supporting Google Gemini and Hugging Face
 - **Multi-Language Support**: Generate documents in 40+ languages with culturally appropriate content. 
 - **Region-Specific Formatting**: Date formats, email domains, and legal text appropriate for each language/region. For example, if you specify Thai as the desired language, it will attempt to generate Thai person and company names, Thai addresses, and Thai currency amounts, and use Thai legal context for appropriate notices and disclosures, etc.
@@ -267,10 +266,25 @@ This is useful when working with enterprise customers that want to apply documen
 - **Paper Texture Backgrounds**: Realistic paper backgrounds for authentic printed/scanned document appearance
 - **Mimic an Existing Document**: Analyze existing document images to extract structure and entities, and create similar-looking documents but with synthetic data. You can think of this as a sort of PII anonymizer. 
 
+## LLM Provider Architecture
+Bureaucrat uses a provider mechanism to connect a backend LLM to generate realistic data, as well as to generate richly formatted business documents. 
 
-Bureaucrat uses a provider mechanism to connect a backend LLM to generate realistic data, as well as to generate richly formatted business documents. It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. 
+It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. The local mode is helpful when you truly don't want to, or can't, send data to a 3rd-party API: You can set up *bureaucrat* on a local machine on your network, clone private business documents, and send only the generated document dataset to a vendor or for demos.
 
-One immediately useful case for synthetic business documents is for demos: Real business documents contains ample amounts of personal data (PII), making it unacceptable to use a company's actual documents for testing and benchmarking document intelligence applications. At the same time, such benchmarking should be performed on a document dataset that closely mirrors a company's actual document data distribution, including the types of documents and entities, as well as general language, contained in the real-world business documents.
+## TL;DR
+
+### Mirroring document data distributions
+One immediately useful case for synthetic business documents is for demos and document AI system configuration: Real business documents contain ample amounts of personal data (PII), making it unacceptable to use a company's actual documents for testing and benchmarking document intelligence applications. 
+
+At the same time, such configuration and benchmarking should be performed on a document dataset that closely mirrors a company's actual document data distribution, including the types of documents and entities, as well as general language, contained in the real-world business documents.
+
+In a real-world scenario, document dataset distribution means a distribution of both visual and textual document features. 
+
+In Document AI applications, it is not enough to work with OCR-extracted textual document content, since (a) You can have documents whose textual content is very similar but the business-relevant document types are actually different, and (b) text-only analysis loses the rich context of text elements inside a heavily formatted business for, example. Indeed, modern document AI pipelines use multi-model, joint embeddings and retrieval mechanisms (sometimes combining dense and sparse representations).
+
+Thus, to mimic a document data distribution, you need to create synthetic data sets that mirror the text+visual appearance of the original business document dataset. 
+
+How to do such document dataset mirroring well and at scale is a current active research area, but this is a critical enabler for document AI implementations in real-world business scenarios. 
 
 ## Setup
 
@@ -302,9 +316,6 @@ The easiest way to generate documents is using the simple generate command that 
 # Basic usage - generates PDFs directly
 ./generate -t "business invoice" -e "customer name,amount,date" -c 10
 
-# With template image for layout matching
-./generate -t "medical form" -e "patient name,doctor,diagnosis" -c 5 -i template.jpg
-
 # Generate documents in Spanish
 ./generate -t "contrato de servicios" -e "cliente,monto,fecha" -c 20 -l es -o spanish_docs
 
@@ -321,24 +332,81 @@ python analyze_document.py -i existing_document.jpg -o analysis
 
 ### Pipeline Options
 
+#### Generate Pipeline
+The `generate` command creates documents with AI-generated layouts. Use this when you want the system to design the document structure.
+
+**Options:**
 - `-t, --document-type`: Type of document (required)
 - `-e, --entity-fields`: Comma-separated entity fields (required)
 - `-c, --count`: Number of documents to generate (default: 10)
 - `-l, --language`: Language code (default: en)
 - `-a, --analysis-json`: Use analysis file instead of manual parameters
-- `-i, --template-image`: Template image for layout matching
 - `-o, --output-dir`: Output directory for PDFs (default: output)
 - `--pdf-converter`: PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
 - `--paper-size`: Paper size (Letter/A4/Legal)
 - `--keep-intermediates`: Keep entity JSON and HTML files
 - `-s, --start-index`: Starting document number (default: 1)
+- `-I, --instructions`: Additional instructions for the LLM
 
-## Advanced Workflows
+#### Clone Pipeline
+The `clone` command analyzes an existing document and creates new documents that match its layout while replacing the data with synthetic content.
 
-### Workflow 1: AI-Powered Document Analysis (Recommended)
+**Options:**
+- `-i, --image`: Path to document image to analyze and use as template (required)
+- `-c, --count`: Number of synthetic documents to generate (default: 10)
+- `-o, --output-dir`: Output directory for final PDFs (default: output)
+- `-l, --language`: Override detected language (default: auto-detect)
+- `-t, --document-type`: Override detected document type (default: auto-detect)
+- `-e, --entity-fields`: Override/add entity fields (default: auto-detect)
+- `--pdf-converter`: PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
+- `--paper-size`: Paper size (Letter/A4/Legal)
+- `--keep-intermediates`: Keep intermediate files (analysis JSON, entity JSON, HTML)
+- `-s, --start-index`: Starting index for document numbering (default: 1)
+- `-I, --instructions`: Additional instructions for the LLM
+- `--skip-analysis`: Skip analysis step, use image as template only (requires -t and -e)
+- `--analyze-only`: Only analyze document and extract PII, do not generate new documents
+
+## Pipeline Details
+
+### Step-by-Step `generate` Pipeline
+
+Generate documents by specifying parameters manually:
+#### Step 1: Generate Entity Data
+```bash
+# Basic entity generation for catering invoices
+python generate_entities.py -t "catering invoice for birthday party" -e "customer name,invoice number,total amount" -c 100
+
+# Thai language entities for medical forms
+python generate_entities.py -t "แบบฟอร์มลงทะเบียนผู้ป่วยใหม่" -e "ชื่อผู้ป่วย,เลขบัตรประชาชน,โรงพยาบาล" -c 50 -l th
+
+# German entities for rental agreements
+python generate_entities.py -t "Wohnungsmietvertrag" -e "Vermieter Name,Mieter Name,Miete pro Monat" -c 25 -l de
+
+# Spanish entities for consulting agreements
+python generate_entities.py -t "contrato de servicios de consultoría" -e "nombre consultor,empresa cliente,tarifa por hora" -c 30 -l es
+```
+
+#### Step 2: Generate HTML Documents
+```bash
+# Generate documents using entity data
+python generate_documents.py -e output/entity_data.json
+
+# Generate with custom output directory
+python generate_documents.py -e thai_entities/entity_data.json -o thai_documents
+
+# Generate with template image for layout matching (requires clone command)
+# Note: template matching is only available via the clone command, not generate_documents.py directly
+```
+
+#### Step 3: Convert to PDF
+```bash
+# Convert to PDF
+python convert_to_pdf.py -i output
+```
+
+### Step-by-Step `clone` Pipeline
 
 Start with an existing document image and generate similar synthetic documents:
-
 #### Step 1: Analyze Document Image
 ```bash
 # Analyze a Thai medical form
@@ -365,54 +433,16 @@ python generate_entities.py -a my_analysis.json -c 75 -o mixed_mode
 
 #### Step 3: Generate HTML Documents
 ```bash
-# Generate HTML documents using the entity data
+# Generate HTML documents using the entity data (with AI-created layouts)
 python generate_documents.py -e output/entity_data.json -o final_documents
 
-# Generate with original document as layout template
-python generate_documents.py -e output/entity_data.json -i original_document.jpg -o final_documents
+# Note: To match an existing document's layout, use the clone command instead
 ```
 
 #### Step 4: Convert to PDF
 ```bash
 # Convert to PDF with zero margins for edge-to-edge backgrounds
 python convert_to_pdf.py -i final_documents
-```
-
-### Workflow 2: Traditional Manual Input
-
-Generate documents by specifying parameters manually:
-
-#### Step 1: Generate Entity Data
-```bash
-# Basic entity generation for catering invoices
-python generate_entities.py -t "catering invoice for birthday party" -e "customer name,invoice number,total amount" -c 100
-
-# Thai language entities for medical forms
-python generate_entities.py -t "แบบฟอร์มลงทะเบียนผู้ป่วยใหม่" -e "ชื่อผู้ป่วย,เลขบัตรประชาชน,โรงพยาบาล" -c 50 -l th
-
-# German entities for rental agreements
-python generate_entities.py -t "Wohnungsmietvertrag" -e "Vermieter Name,Mieter Name,Miete pro Monat" -c 25 -l de
-
-# Spanish entities for consulting agreements
-python generate_entities.py -t "contrato de servicios de consultoría" -e "nombre consultor,empresa cliente,tarifa por hora" -c 30 -l es
-```
-
-#### Step 2: Generate HTML Documents
-```bash
-# Generate documents using entity data
-python generate_documents.py -e output/entity_data.json
-
-# Generate with custom output directory
-python generate_documents.py -e thai_entities/entity_data.json -o thai_documents
-
-# Generate with template image for layout matching
-python generate_documents.py -e output/entity_data.json -i template_document.jpg -o templated_docs
-```
-
-#### Step 3: Convert to PDF
-```bash
-# Convert to PDF
-python convert_to_pdf.py -i output
 ```
 
 ## AI Provider Configuration
@@ -465,7 +495,6 @@ Complete pipeline that generates PDFs in one command.
 - `-c, --count INTEGER`: Number of documents (default: 10)
 - `-l, --language TEXT`: Language code (default: en)
 - `-a, --analysis-json PATH`: Use analysis file from analyze_document.py
-- `-i, --template-image PATH`: Template image for layout
 - `-o, --output-dir TEXT`: Output directory (default: output)
 - `--pdf-converter`: Choose PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
 - `--keep-intermediates`: Keep entity JSON and HTML files
@@ -535,7 +564,7 @@ Do you want to add 'Customer Name' attribute to the target entities? (y/n): y
 ...
 ```
 
-### generate_entities.py (Enhanced)
+### generate_entities.py
 Generate synthetic entity data manually or from document analysis.
 
 **Manual Mode Parameters:**
@@ -561,7 +590,7 @@ Create HTML documents from entity data.
 - `-e, --entity-file PATH`: JSON file with entity data (required)
 - `-t, --document-type TEXT`: Override document type (optional)
 - `-l, --language TEXT`: Override language (optional)
-- `-i, --template-image PATH`: Image file to use as layout template (optional)
+- `-i, --template-image PATH`: Image file to use as layout template (Note: only works when called from clone command)
 - `-o, --output-dir TEXT`: Output directory (default: output)
 - `-s, --start-index INTEGER`: Starting document number (default: 1)
 
@@ -649,15 +678,17 @@ python convert_to_pdf.py -i japanese_contracts
 
 ### Template-Based Document Generation
 ```bash
-# Generate documents that match existing template layout
+# Generate documents with AI-created layouts
 python generate_entities.py -t "medical consultation form" -e "patient name,doctor name,diagnosis,treatment" -c 10
-python generate_documents.py -e output/entity_data.json -i template_medical_form.jpg -o templated_medical
+python generate_documents.py -e output/entity_data.json -o medical_documents
+python convert_to_pdf.py -i medical_documents
 
-# Analysis + Template workflow for precise matching
+# Clone existing document layout (use clone command for template matching)
+./clone -i original_invoice.png -c 25 -o matched_invoices
+
+# Or use analysis + clone workflow for precise matching
 python analyze_document.py -i original_invoice.png -o analysis
-python generate_entities.py -a analysis/document_analysis.json -c 25 -o invoice_entities
-python generate_documents.py -e invoice_entities/entity_data.json -i original_invoice.png -o matched_invoices
-python convert_to_pdf.py -i matched_invoices
+./clone -i original_invoice.png --skip-analysis -a analysis/document_analysis.json -c 25
 
 # Result: Documents that closely match the original template's layout and appearance
 ```
