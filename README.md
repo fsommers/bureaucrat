@@ -280,7 +280,7 @@ At the same time, such configuration and benchmarking should be performed on a d
 
 In a real-world scenario, document dataset distribution means a distribution of both visual and textual document features. 
 
-In Document AI applications, it is not enough to work with OCR-extracted textual document content, since (a) You can have documents whose textual content is very similar but the business-relevant document types are actually different, and (b) text-only analysis loses the rich context of text elements inside a heavily formatted business for, example. Indeed, modern document AI pipelines use multi-model, joint embeddings and retrieval mechanisms (sometimes combining dense and sparse representations).
+In Document AI applications, it is not enough to work with OCR-extracted textual document content, since (a) You can have documents whose textual content is very similar but the business-relevant document types are actually different, and (b) text-only analysis loses the rich context of text elements inside a heavily formatted business for, example. Indeed, modern document AI pipelines use multimodal, joint embeddings and retrieval mechanisms (sometimes combining dense and sparse representations).
 
 Thus, to mimic a document data distribution, you need to create synthetic data sets that mirror the text+visual appearance of the original business document dataset. 
 
