@@ -332,6 +332,10 @@ python analyze_document.py -i existing_document.jpg -o analysis
 
 ### Pipeline Options
 
+#### Generate Pipeline
+The `generate` command creates documents with AI-generated layouts. Use this when you want the system to design the document structure.
+
+**Options:**
 - `-t, --document-type`: Type of document (required)
 - `-e, --entity-fields`: Comma-separated entity fields (required)
 - `-c, --count`: Number of documents to generate (default: 10)
@@ -342,13 +346,67 @@ python analyze_document.py -i existing_document.jpg -o analysis
 - `--paper-size`: Paper size (Letter/A4/Legal)
 - `--keep-intermediates`: Keep entity JSON and HTML files
 - `-s, --start-index`: Starting document number (default: 1)
+- `-I, --instructions`: Additional instructions for the LLM
 
-## Advanced Workflows
+#### Clone Pipeline
+The `clone` command analyzes an existing document and creates new documents that match its layout while replacing the data with synthetic content.
 
-### Workflow 1: AI-Powered Document Analysis (Recommended)
+**Options:**
+- `-i, --image`: Path to document image to analyze and use as template (required)
+- `-c, --count`: Number of synthetic documents to generate (default: 10)
+- `-o, --output-dir`: Output directory for final PDFs (default: output)
+- `-l, --language`: Override detected language (default: auto-detect)
+- `-t, --document-type`: Override detected document type (default: auto-detect)
+- `-e, --entity-fields`: Override/add entity fields (default: auto-detect)
+- `--pdf-converter`: PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
+- `--paper-size`: Paper size (Letter/A4/Legal)
+- `--keep-intermediates`: Keep intermediate files (analysis JSON, entity JSON, HTML)
+- `-s, --start-index`: Starting index for document numbering (default: 1)
+- `-I, --instructions`: Additional instructions for the LLM
+- `--skip-analysis`: Skip analysis step, use image as template only (requires -t and -e)
+- `--analyze-only`: Only analyze document and extract PII, do not generate new documents
+
+## Pipeline Details
+
+### Step-by-Step `generate` Pipeline
+
+Generate documents by specifying parameters manually:
+#### Step 1: Generate Entity Data
+```bash
+# Basic entity generation for catering invoices
+python generate_entities.py -t "catering invoice for birthday party" -e "customer name,invoice number,total amount" -c 100
+
+# Thai language entities for medical forms
+python generate_entities.py -t "แบบฟอร์มลงทะเบียนผู้ป่วยใหม่" -e "ชื่อผู้ป่วย,เลขบัตรประชาชน,โรงพยาบาล" -c 50 -l th
+
+# German entities for rental agreements
+python generate_entities.py -t "Wohnungsmietvertrag" -e "Vermieter Name,Mieter Name,Miete pro Monat" -c 25 -l de
+
+# Spanish entities for consulting agreements
+python generate_entities.py -t "contrato de servicios de consultoría" -e "nombre consultor,empresa cliente,tarifa por hora" -c 30 -l es
+```
+
+#### Step 2: Generate HTML Documents
+```bash
+# Generate documents using entity data
+python generate_documents.py -e output/entity_data.json
+
+# Generate with custom output directory
+python generate_documents.py -e thai_entities/entity_data.json -o thai_documents
+
+# Generate with template image for layout matching (requires clone command)
+# Note: template matching is only available via the clone command, not generate_documents.py directly
+```
+
+#### Step 3: Convert to PDF
+```bash
+# Convert to PDF
+python convert_to_pdf.py -i output
+```
+
+### Step-by-Step `clone` Pipeline
 
 Start with an existing document image and generate similar synthetic documents:
-
 #### Step 1: Analyze Document Image
 ```bash
 # Analyze a Thai medical form
@@ -385,43 +443,6 @@ python generate_documents.py -e output/entity_data.json -o final_documents
 ```bash
 # Convert to PDF with zero margins for edge-to-edge backgrounds
 python convert_to_pdf.py -i final_documents
-```
-
-### Workflow 2: Traditional Manual Input
-
-Generate documents by specifying parameters manually:
-
-#### Step 1: Generate Entity Data
-```bash
-# Basic entity generation for catering invoices
-python generate_entities.py -t "catering invoice for birthday party" -e "customer name,invoice number,total amount" -c 100
-
-# Thai language entities for medical forms
-python generate_entities.py -t "แบบฟอร์มลงทะเบียนผู้ป่วยใหม่" -e "ชื่อผู้ป่วย,เลขบัตรประชาชน,โรงพยาบาล" -c 50 -l th
-
-# German entities for rental agreements
-python generate_entities.py -t "Wohnungsmietvertrag" -e "Vermieter Name,Mieter Name,Miete pro Monat" -c 25 -l de
-
-# Spanish entities for consulting agreements
-python generate_entities.py -t "contrato de servicios de consultoría" -e "nombre consultor,empresa cliente,tarifa por hora" -c 30 -l es
-```
-
-#### Step 2: Generate HTML Documents
-```bash
-# Generate documents using entity data
-python generate_documents.py -e output/entity_data.json
-
-# Generate with custom output directory
-python generate_documents.py -e thai_entities/entity_data.json -o thai_documents
-
-# Generate with template image for layout matching (requires clone command)
-# Note: template matching is only available via the clone command, not generate_documents.py directly
-```
-
-#### Step 3: Convert to PDF
-```bash
-# Convert to PDF
-python convert_to_pdf.py -i output
 ```
 
 ## AI Provider Configuration
@@ -543,7 +564,7 @@ Do you want to add 'Customer Name' attribute to the target entities? (y/n): y
 ...
 ```
 
-### generate_entities.py (Enhanced)
+### generate_entities.py
 Generate synthetic entity data manually or from document analysis.
 
 **Manual Mode Parameters:**
