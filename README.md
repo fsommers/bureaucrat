@@ -1,4 +1,4 @@
-<img src='assets/watanabe_graphics.png'/>
+<img src='assets/watanabe_graphics.png' height="300"/>
 <div align="center"><sup><i>Watanabe, the hero of Akira Kurosawa's Ikiru, as edited by Qwen2.5-Max.</i></sup></div>
 
 # Bureaucrat:
