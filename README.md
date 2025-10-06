@@ -86,7 +86,7 @@ You can generate documents in other languages. The following generates 5 unique 
      "Beginn des Mietverhältnisses"\
   -I "Generate and include other data items "\
       "as appropriate for a rental agreement in Germany. "\
-      "Include legal language appropriate for a German " 
+      "Include legal language appropriate for a German " \
       "apartment rental agreement, including language required " \
       "in the jurisdiction specified in the data."
 ```
