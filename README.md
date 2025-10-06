@@ -258,8 +258,8 @@ This is useful when working with enterprise customers that want to apply documen
 ## Features
 
 - **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF. You can also invoke and customize individuals steps in the pipeline.
-- **Multiple AI Providers**: Abstraction layer supporting Google Gemini and Hugging Face
-- **Multi-Language Support**: Generate documents in 40+ languages with culturally appropriate content. 
+- **Multiple AI Providers**: Flexible abstraction layer supporting both Google Gemini and Hugging Face Inference API, with seamless switching between providers
+- **Multi-Language Support**: Generate documents in 40+ languages with culturally appropriate content.
 - **Region-Specific Formatting**: Date formats, email domains, and legal text appropriate for each language/region. For example, if you specify Thai as the desired language, it will attempt to generate Thai person and company names, Thai addresses, and Thai currency amounts, and use Thai legal context for appropriate notices and disclosures, etc.
 - **Realistic Document Generation**: HTML documents with embedded CSS optimized for US Letter-size pages, but you can specify other output pages sizes as well, such as A4, etc.
 - **PDF Conversion**: Multiple conversion engines for high-quality PDF output
@@ -267,9 +267,13 @@ This is useful when working with enterprise customers that want to apply documen
 - **Mimic an Existing Document**: Analyze existing document images to extract structure and entities, and create similar-looking documents but with synthetic data. You can think of this as a sort of PII anonymizer. 
 
 ## LLM Provider Architecture
-Bureaucrat uses a provider mechanism to connect a backend LLM to generate realistic data, as well as to generate richly formatted business documents. 
+Bureaucrat uses a flexible provider mechanism to connect backend LLMs for generating realistic data and richly formatted business documents.
 
-It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. The HF local mode is helpful when you truly don't want to, or can't, send data to a 3rd-party API: You can set up *bureaucrat* on a local machine on your network, clone private business documents, and send only the generated document dataset to a vendor or for demos.
+The system currently supports:
+- **Google Gemini API** - Fast, reliable, with excellent vision capabilities for document analysis
+- **Hugging Face Inference API** - Access to a wide range of open models including Llama, Mistral, and Qwen
+
+The provider abstraction layer allows seamless switching between different AI backends while maintaining consistent functionality across all document generation features.
 
 ## TL;DR
 
@@ -297,9 +301,9 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Edit .env and add your API keys:
-# - GEMINI_API_KEY for Google Gemini (required)
-# - HUGGINGFACE_API_KEY for Hugging Face (optional, coming soon)
-# - AI_PROVIDER to choose provider (default: gemini)
+# - GEMINI_API_KEY for Google Gemini
+# - HUGGINGFACE_API_KEY for Hugging Face
+# - AI_PROVIDER to choose provider (gemini or huggingface)
 ```
 
 3. Add background images (optional):
@@ -447,37 +451,116 @@ python convert_to_pdf.py -i final_documents
 
 ## AI Provider Configuration
 
-The system supports multiple AI providers through an abstraction layer:
+The system supports multiple AI providers through an abstraction layer, allowing you to choose the best model for your needs:
 
-### Currently Supported
-- **Google Gemini** (default) - Full support for text and vision tasks
+### Currently Supported Providers
 
-### Coming Soon
-- **Hugging Face** - Support for open-source models
+#### Google Gemini (Default)
+- **Models**: Gemini 2.5 Flash (default), Gemini Pro
+- **Features**: Full text generation and vision capabilities
+- **Best for**: Fast generation, document analysis, high-quality results
+- **Setup**: Requires `GEMINI_API_KEY` from [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+#### Hugging Face Inference API
+- **Models**: Wide range including Llama, Mistral, Qwen, and more
+- **Tested Models**:
+  - **Qwen/Qwen3-VL-235B-A22B-Thinking** - Excellent vision-language model with strong multilingual support
+  - **meta-llama/Meta-Llama-3-8B-Instruct** - Fast and efficient for text generation
+  - **mistralai/Mistral-7B-Instruct-v0.2** - Good balance of speed and quality
+- **Features**: Access to open-source models, some with vision capabilities
+- **Best for**: Flexibility, open models, specialized use cases
+- **Setup**: Requires `HUGGINGFACE_API_KEY` from [Hugging Face Settings](https://huggingface.co/settings/tokens)
 
 ### Configuration
+
 Set your preferred provider in `.env`:
+
 ```bash
-# Choose provider: 'gemini' or 'huggingface' (coming soon)
-AI_PROVIDER=gemini
+# Choose provider: 'gemini' or 'huggingface'
+AI_PROVIDER=gemini  # or huggingface
 
 # Google Gemini settings
-GEMINI_API_KEY=your_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash  # Optional, defaults to gemini-2.5-flash
 
-# Hugging Face settings (coming soon)
-HUGGINGFACE_API_KEY=your_api_key_here
-HUGGINGFACE_MODEL=meta-llama/Llama-3.2-11B-Vision-Instruct
+# Hugging Face settings
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+# Recommended models:
+HUGGINGFACE_MODEL=Qwen/Qwen3-VL-235B-A22B-Thinking  # Vision + text (recommended)
+# HUGGINGFACE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct  # Text only
+# HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.2  # Text only
+
+# Optional: Use a custom inference endpoint
+# HUGGINGFACE_ENDPOINT=https://your-endpoint.com
+
+# General settings (apply to all providers)
+TEMPERATURE=0.7  # Optional, controls randomness (0.0-1.0)
+MAX_TOKENS=8192  # Optional, maximum tokens to generate
 ```
+
+### Selecting a Provider
+
+You can switch providers in multiple ways:
+
+1. **Set default in .env file**:
+   ```bash
+   AI_PROVIDER=huggingface  # or gemini
+   ```
+
+2. **Override at runtime** (for individual commands):
+   ```bash
+   # Force use of Gemini regardless of .env setting
+   AI_PROVIDER=gemini python generate_entities.py -t "invoice" -e "amount,date" -c 10
+
+   # Use Hugging Face for a specific task
+   AI_PROVIDER=huggingface ./generate -t "contract" -e "parties,terms" -c 5
+   ```
+
+3. **Programmatically in code**:
+   ```python
+   from ai_providers import get_ai_client
+
+   # Use specific provider
+   client = get_ai_client(provider='huggingface')
+   # or
+   client = get_ai_client(provider='gemini')
+   ```
 
 ### Testing Providers
-```bash
-# Test the current provider configuration
-python check_providers.py --provider gemini
 
-# Test with entity generation
+Verify your provider configuration:
+
+```bash
+# Test Gemini provider
 python check_providers.py --provider gemini --test-generation
+
+# Test Hugging Face provider
+python check_providers.py --provider huggingface --test-generation
+
+# Test vision capabilities (if supported by model)
+python check_providers.py --provider huggingface --test-vision
 ```
+
+### Provider Selection Guidelines
+
+**Choose Gemini when you need:**
+- Fast, reliable document generation
+- Strong vision capabilities for document analysis
+- Consistent high-quality results
+- Simple setup with minimal configuration
+
+**Choose Hugging Face when you need:**
+- Access to specific open-source models
+- Flexibility to switch between different models
+- Cost-effective inference for large batches
+- Models with specialized capabilities (e.g., Qwen for Asian languages)
+
+### Performance Notes
+
+- **Gemini**: Generally faster response times, excellent for real-time generation
+- **Qwen3-VL** (via HF): Strong multilingual support, particularly good with Asian languages and technical documents
+- **Llama models** (via HF): Good balance of speed and quality, widely supported
+- **API Rate Limits**: Both providers have rate limits; HF may require waiting between requests for some models
 
 ## Commands Reference
 
@@ -813,7 +896,8 @@ backgrounds/
 ## Requirements
 
 ```
-google-generativeai>=0.7.0
+google-generativeai>=0.7.0  # For Gemini provider
+huggingface_hub>=0.23.0  # For Hugging Face provider
 jinja2>=3.1.0
 click>=8.1.0
 python-dotenv>=1.0.0
