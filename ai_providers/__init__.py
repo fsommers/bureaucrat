@@ -22,14 +22,17 @@ This package provides a unified interface for different AI providers
 from .base_provider import AIProvider, ProviderConfig
 from .provider_factory import ProviderFactory, get_ai_client
 from .gemini_provider import GeminiProvider
+from .huggingface_provider import HuggingFaceProvider
 
 # Register available providers
 ProviderFactory.register_provider('gemini', GeminiProvider)
+ProviderFactory.register_provider('huggingface', HuggingFaceProvider)
 
 __all__ = [
     'AIProvider',
     'ProviderConfig',
     'ProviderFactory',
     'get_ai_client',
-    'GeminiProvider'
+    'GeminiProvider',
+    'HuggingFaceProvider'
 ]

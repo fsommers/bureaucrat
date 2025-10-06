@@ -19,6 +19,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from ai_providers import AIProvider, ProviderFactory, get_ai_client
 from ai_providers.gemini_provider import GeminiProvider
+from ai_providers.huggingface_provider import HuggingFaceProvider
 from ai_providers.base_provider import ProviderConfig
 
 
@@ -269,6 +270,116 @@ class TestGeminiProvider:
         assert isinstance(result, dict)
         assert "document_type" in result
         mock_model.generate_content.assert_called()
+
+
+class TestHuggingFaceProvider:
+    """Test the Hugging Face provider implementation."""
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.huggingface_provider.InferenceClient')
+    def test_huggingface_provider_initialization(self, mock_client):
+        """Test Hugging Face provider initialization."""
+        config = ProviderConfig(
+            api_key="test-hf-key",
+            model_name="meta-llama/Llama-3-8B-Instruct",
+            temperature=0.5
+        )
+
+        provider = HuggingFaceProvider(config)
+
+        # Verify InferenceClient was created
+        mock_client.assert_called_once_with(
+            model="meta-llama/Llama-3-8B-Instruct",
+            token="test-hf-key",
+            base_url=None
+        )
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.huggingface_provider.InferenceClient')
+    def test_huggingface_vision_detection(self, mock_client):
+        """Test Hugging Face provider vision capability detection."""
+        # Test vision model
+        config_vision = ProviderConfig(
+            api_key="test-hf-key",
+            model_name="meta-llama/Llama-3.2-11B-Vision-Instruct"
+        )
+        provider_vision = HuggingFaceProvider(config_vision)
+        assert provider_vision.supports_vision() == True
+
+        # Test non-vision model
+        config_text = ProviderConfig(
+            api_key="test-hf-key",
+            model_name="meta-llama/Llama-3-8B-Instruct"
+        )
+        provider_text = HuggingFaceProvider(config_text)
+        assert provider_text.supports_vision() == False
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.huggingface_provider.InferenceClient')
+    def test_huggingface_generate_bulk_entity_data(self, mock_client):
+        """Test Hugging Face provider's bulk entity generation."""
+        # Setup mock
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Mock successful response
+        mock_instance.text_generation.return_value = '[{"name": "Test Company", "amount": "100"}]'
+
+        config = ProviderConfig(api_key="test-hf-key")
+        provider = HuggingFaceProvider(config)
+
+        # Test generation
+        result = provider.generate_bulk_entity_data(
+            "invoice",
+            ["name", "amount"],
+            1,
+            language='en'
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["name"] == "Test Company"
+        mock_instance.text_generation.assert_called()
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.huggingface_provider.InferenceClient')
+    def test_huggingface_generate_document(self, mock_client):
+        """Test Hugging Face provider's document generation."""
+        # Setup mock
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Mock HTML response
+        mock_instance.text_generation.return_value = '<!DOCTYPE html><html><body>Test Document</body></html>'
+
+        config = ProviderConfig(api_key="test-hf-key")
+        provider = HuggingFaceProvider(config)
+
+        # Test generation
+        result = provider.generate_document_with_data(
+            "invoice",
+            {"company": "Test Corp", "amount": "100"},
+            language='en'
+        )
+
+        assert '<!DOCTYPE html>' in result
+        assert '<html>' in result
+        mock_instance.text_generation.assert_called()
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    def test_huggingface_no_api_key_error(self):
+        """Test Hugging Face provider raises error without API key."""
+        config = ProviderConfig(api_key=None)
+
+        with pytest.raises(ValueError) as exc_info:
+            HuggingFaceProvider(config)
+
+        assert "HUGGINGFACE_API_KEY" in str(exc_info.value)
 
 
 class TestProviderErrorHandling:
