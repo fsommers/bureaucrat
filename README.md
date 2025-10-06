@@ -1,7 +1,7 @@
 <img src='assets/watanabe_graphics.png' height="300"/>
 <div align="left"><sup><i>Watanabe, the hero of Akira Kurosawa's Ikiru, as edited by Qwen2.5-Max.</i></sup></div>
 
-# Bureaucrat:
+# Bureaucrat
 ## A Multilingual Synthetic Business Document Generator
 
 When working with document AI applications, it is useful to be able to generate synthetic business documents. 
@@ -16,7 +16,7 @@ With minimal prompting, *Bureaucrat* generates documents, such as invoices, cont
 
 ## Generating Synthetic Business Documents
 
-The following command results in 10 medical intake form PDFs, with each form having different layouts and different data:
+The following command results in 3 medical intake form PDFs, with each form having different layouts and different data:
 
 ```
 ./generate \
@@ -106,7 +106,7 @@ You can generate documents in other languages. The following generates 5 unique 
 
 `-l` specifies the desired language;
 
-`-I` specify optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. Mix-and-match of languages is supported, based on the underlying LLM's capabilities.
+`-I` specifies optional instructions to the LLM -- in this case, to include legal language appropriate for a German apartment rental agreement. Mix-and-match of languages is supported, based on the underlying LLM's capabilities.
 
 The resulting generated data is region-appropriate, such as using German(-sounding) names, German addresses, currency formatting, phone numbers, and emails. The rental amount is also in a realistic range:
 
@@ -204,18 +204,18 @@ For example, suppose the medical intake form above were a real document used at 
 </tr>
 </table>
 
-The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. `clone` mode can:
+The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. `clone` mode:
 
-* detect these items on the document, 
-* generate similar but synthetic data, 
-* clone the layout of the original form, and 
-* create 3 newly generated synthetic patient intake forms:
+* detects these items on the document, 
+* generates similar but synthetic data, 
+* clones the layout of the original form, and 
+* creates 3 newly generated synthetic patient intake forms:
 
 ```
 ./clone -i medical_intake_form.png -c 3
 ```
 
-This pipeline results in 3 new documents, closely mirroring the original document's layout, but the sensitive data being replaced with synthetic versions:
+This pipeline results in 3 new documents, closely mirroring the original document's layout, but the sensitive data is replaced with synthetic data:
 
 <table>
 <tr>
@@ -225,7 +225,7 @@ This pipeline results in 3 new documents, closely mirroring the original documen
 </tr>
 </table>
 
-In the `clone` pipeline, the system detects the PII in the original document, and can optionally save this extracted information in a file:
+Since the `clone` pipeline detects the PII and other data fields in the original document, you can can optionally save the extracted entity information in a file:
 
 ```
 {
@@ -251,9 +251,9 @@ In the `clone` pipeline, the system detects the PII in the original document, an
 }
 ```
 
-Based on the detected PII fields, *bureaucrat*'s `clone` mode generated synthetic data and used that to populate the newly generated documents.
+Based on the detected PII fields, *bureaucrat*'s `clone` mode generates synthetic data that matches the extract entities types. 
 
-This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents for system training or configuration, due to privacy reasons. With *bureaucrat*'s `clone` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
+This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents for system training or configuration, due to privacy reasons. With *bureaucrat*'s `clone` mode, a customer can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
 
 ## Features
 
@@ -269,7 +269,7 @@ This is useful when working with enterprise customers that want to apply documen
 ## LLM Provider Architecture
 Bureaucrat uses a provider mechanism to connect a backend LLM to generate realistic data, as well as to generate richly formatted business documents. 
 
-It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. The local mode is helpful when you truly don't want to, or can't, send data to a 3rd-party API: You can set up *bureaucrat* on a local machine on your network, clone private business documents, and send only the generated document dataset to a vendor or for demos.
+It currently supports the Gemini API and Hugging Face transformers, either via local use or via the Hugging Face Inference providers API. The HF local mode is helpful when you truly don't want to, or can't, send data to a 3rd-party API: You can set up *bureaucrat* on a local machine on your network, clone private business documents, and send only the generated document dataset to a vendor or for demos.
 
 ## TL;DR
 
