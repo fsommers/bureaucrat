@@ -1,5 +1,8 @@
-# Bureaucrat: 
-## Multilingual Synthetic Business Documents Generator
+<img src='assets/watanabe_graphics.png'/>
+<div align="center"><sup><i>Watanabe, the hero of Akira Kurosawa's Ikiru, as edited by Qwen2.5-Max.</i></sup></div>
+
+# Bureaucrat:
+## A Multilingual Synthetic Business Documents Generator
 
 When working with document AI applications, it is useful to be able to generate synthetic business documents. 
 
