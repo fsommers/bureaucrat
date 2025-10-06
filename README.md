@@ -12,7 +12,7 @@ With minimal prompting, *Bureaucrat* generates documents, such as invoices, cont
 
 (1) In `generate` mode, you specify what types of documents you desire, and the system comes up with with the document designs and data for you;
 
-(2) In `homoform` mode, you specify an existing business document, and the system attempts to "clone" that document, replacing private data with synthetic data, but keeping the original document's design.
+(2) In `clone` mode, you specify an existing business document, and the system attempts to "clone" that document, replacing private data with synthetic data, but keeping the original document's design.
 
 ## Generating Synthetic Business Documents
 
@@ -188,14 +188,14 @@ The years are stated in the Buddhist year, customary in Thai business documents,
   }
 ```
 
-## "Homoform" mode: 
+## "Clone" mode:
 ### Clone and Anonymize Existing Business Documents
 
-In `homoform` mode you can take an existing business document, possibly containing sensitive PII data, and: 
+In `clone` mode you can take an existing business document, possibly containing sensitive PII data, and: 
 
 * Replace the PII data with synthetic data
 * Clone the layout of the existing document
-* Following that layout, generate new documents from the existing document, but based on the synthetically generated data. Hence, *homoform*: Same form, different data
+* Following that layout, generate new documents from the existing document, but based on the synthetically generated data. Hence, *clone*: Same form, different data
 
 For example, suppose the medical intake form above were a real document used at a doctor's office:
 
@@ -205,7 +205,7 @@ For example, suppose the medical intake form above were a real document used at 
 </tr>
 </table>
 
-The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. In `homoform` mode, we can:
+The patient name, date of birth, policy number, preexisting conditions, etc. are sensitive data items. In `clone` mode, we can:
 
 * detect these items on the document, 
 * generate similar but synthetic data, 
@@ -213,16 +213,16 @@ The patient name, date of birth, policy number, preexisting conditions, etc. are
 * create 3 newly generated synthetic patient intake forms:
 
 ```
-./homoform -i output/medical_intake_form.png -c 3
+./clone -i output/medical_intake_form.png -c 3
 ```
 
 This pipeline results in 3 new documents, closely mirroring the original document's layout, but the sensitive data being replaced with synthetic versions:
 
 <table>
 <tr>
-<td><img src="assets/medical_int_homoform2.png" alt="Medical Form 1" width="250"></td>
-<td><img src="assets/medical_int_homoform.png" alt="Medical Form 2" width="250"></td>
-<td><img src="assets/medical_int_homoform5.png" alt="Medical Form 3" width="250"></td>
+<td><img src="assets/medical_int_clone2.png" alt="Medical Form 1" width="250"></td>
+<td><img src="assets/medical_int_clone.png" alt="Medical Form 2" width="250"></td>
+<td><img src="assets/medical_int_clone5.png" alt="Medical Form 3" width="250"></td>
 </tr>
 </table>
 
@@ -254,7 +254,7 @@ The system detected the PII in the original document:
 
 Based on the detected PII fields, the *bureaucrat* generated synthetic data and used that to populate the newly generated documents.
 
-This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents, due to privacy reasons. With *bureaucrat*'s `homoform` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
+This is useful when working with enterprise customers that want to apply document AI tools to their own private documents, but cannot hand you examples of actual documents, due to privacy reasons. With *bureaucrat*'s `clone` mode, they can clone and anonymize their private documents, and use those anonymized "clone" documents for configuring a document intelligence system.
 
 ## Features
 

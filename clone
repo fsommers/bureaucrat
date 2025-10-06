@@ -48,29 +48,29 @@ def main(image, count, output_dir, language, document_type, entity_fields,
     then generates multiple synthetic versions with different data but similar structure.
     The original image is also used as a visual template for layout matching.
 
-    The name "homoform" reflects creating documents of the same form/structure
-    but with different content (homomorphic transformation).
+    The name "clone" reflects creating documents that are clones of the original
+    template with different content.
 
     Examples:
 
     Basic usage (auto-detect everything):
-        ./homoform -i invoice.png -c 50
+        ./clone -i invoice.png -c 50
 
     Generate 100 German contracts from a template:
-        ./homoform -i german_contract.jpg -c 100 -o german_contracts
+        ./clone -i german_contract.jpg -c 100 -o german_contracts
 
     Override detected language:
-        ./homoform -i document.png -c 25 -l fr
+        ./clone -i document.png -c 25 -l fr
 
     Skip analysis (use image as template only):
-        ./homoform -i template.png -c 10 --skip-analysis -t "invoice" -e "customer,amount,date"
+        ./clone -i template.png -c 10 --skip-analysis -t "invoice" -e "customer,amount,date"
 
     With custom instructions:
-        ./homoform -i rental.pdf -c 20 -I "Include legal text for California"
+        ./clone -i rental.pdf -c 20 -I "Include legal text for California"
 
     Analyze only (extract PII without generating documents):
-        ./homoform -i document.png --analyze-only
-        ./homoform -i invoice.pdf --analyze-only -o extracted_data
+        ./clone -i document.png --analyze-only
+        ./clone -i invoice.pdf --analyze-only -o extracted_data
     """
 
     # Validate conflicting options
@@ -93,7 +93,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
         intermediate_dir = output_dir
         click.echo(f"📁 Analysis output directory: {output_dir}")
     elif not keep_intermediates:
-        temp_dir = tempfile.mkdtemp(prefix='homoform_')
+        temp_dir = tempfile.mkdtemp(prefix='clone_')
         intermediate_dir = temp_dir
         click.echo(f"📁 Using temporary directory for intermediates: {temp_dir}")
     else:
@@ -176,7 +176,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
                             display_value = display_value[:57] + "..."
                         click.echo(f"  • {entity_name}: {display_value}")
 
-                click.echo(f"\n💡 Use this analysis file with generate_entities.py or the full homoform pipeline")
+                click.echo(f"\n💡 Use this analysis file with generate_entities.py or the full clone pipeline")
                 click.echo(f"   to create synthetic documents based on this template.")
                 return 0
 
@@ -283,7 +283,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
         # CLEANUP & SUMMARY
         # ============================================
         click.echo("\n" + "="*60)
-        click.echo("✅ HOMOFORM PIPELINE COMPLETED SUCCESSFULLY!")
+        click.echo("✅ CLONE PIPELINE COMPLETED SUCCESSFULLY!")
         click.echo("="*60)
 
         # Count generated PDFs
