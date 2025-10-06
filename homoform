@@ -1,0 +1,334 @@
+#!/usr/bin/env python3
+
+import click
+import os
+import json
+import tempfile
+from pathlib import Path
+from config import DEFAULT_OUTPUT_DIR, DEFAULT_DOCUMENT_COUNT, LANGUAGE_CODES
+import subprocess
+import sys
+
+@click.command()
+@click.option('--image', '-i', required=True, type=click.Path(exists=True),
+              help='Path to document image to analyze and use as template (required)')
+@click.option('--count', '-c', default=DEFAULT_DOCUMENT_COUNT, type=int,
+              help=f'Number of synthetic documents to generate (default: {DEFAULT_DOCUMENT_COUNT}, not used with --analyze-only)')
+@click.option('--output-dir', '-o', default=DEFAULT_OUTPUT_DIR,
+              help=f'Output directory for final PDFs (default: {DEFAULT_OUTPUT_DIR})')
+@click.option('--language', '-l', default=None,
+              help=f'Override detected language (default: auto-detect). Supported: {", ".join(sorted(LANGUAGE_CODES.keys()))}')
+@click.option('--document-type', '-t', default=None,
+              help='Override detected document type (default: auto-detect from image)')
+@click.option('--entity-fields', '-e', default=None,
+              help='Override/add entity fields (default: auto-detect from image)')
+@click.option('--pdf-converter', default='weasyprint',
+              type=click.Choice(['weasyprint', 'wkhtmltopdf', 'playwright', 'chrome']),
+              help='PDF conversion engine to use (default: weasyprint)')
+@click.option('--paper-size', default='Letter',
+              type=click.Choice(['Letter', 'A4', 'Legal']),
+              help='Paper size for PDF output (default: Letter)')
+@click.option('--keep-intermediates', is_flag=True,
+              help='Keep intermediate files (analysis JSON, entity JSON, and HTML files)')
+@click.option('--start-index', '-s', default=1, type=int,
+              help='Starting index for document numbering (default: 1)')
+@click.option('--instructions', '-I', default=None, type=str,
+              help='Additional instructions for the LLM when generating documents')
+@click.option('--skip-analysis', is_flag=True,
+              help='Skip analysis step and use image as template only (requires -t and -e)')
+@click.option('--analyze-only', is_flag=True,
+              help='Only analyze the document and extract PII/entities, do not generate new documents')
+def main(image, count, output_dir, language, document_type, entity_fields,
+         pdf_converter, paper_size, keep_intermediates, start_index,
+         instructions, skip_analysis, analyze_only):
+    """
+    Generate synthetic documents based on an existing document image.
+
+    This command analyzes a document image to extract its type, language, and data fields,
+    then generates multiple synthetic versions with different data but similar structure.
+    The original image is also used as a visual template for layout matching.
+
+    The name "homoform" reflects creating documents of the same form/structure
+    but with different content (homomorphic transformation).
+
+    Examples:
+
+    Basic usage (auto-detect everything):
+        ./homoform -i invoice.png -c 50
+
+    Generate 100 German contracts from a template:
+        ./homoform -i german_contract.jpg -c 100 -o german_contracts
+
+    Override detected language:
+        ./homoform -i document.png -c 25 -l fr
+
+    Skip analysis (use image as template only):
+        ./homoform -i template.png -c 10 --skip-analysis -t "invoice" -e "customer,amount,date"
+
+    With custom instructions:
+        ./homoform -i rental.pdf -c 20 -I "Include legal text for California"
+
+    Analyze only (extract PII without generating documents):
+        ./homoform -i document.png --analyze-only
+        ./homoform -i invoice.pdf --analyze-only -o extracted_data
+    """
+
+    # Validate conflicting options
+    if skip_analysis and analyze_only:
+        click.echo("❌ Error: Cannot use --skip-analysis and --analyze-only together")
+        return 1
+
+    # Validate skip-analysis requirements
+    if skip_analysis:
+        if not document_type or not entity_fields:
+            click.echo("❌ Error: --skip-analysis requires both -t (document-type) and -e (entity-fields)")
+            return 1
+
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Create temporary directory for intermediate files if not keeping them
+    # For analyze-only mode, we always use the output directory
+    if analyze_only:
+        intermediate_dir = output_dir
+        click.echo(f"📁 Analysis output directory: {output_dir}")
+    elif not keep_intermediates:
+        temp_dir = tempfile.mkdtemp(prefix='homoform_')
+        intermediate_dir = temp_dir
+        click.echo(f"📁 Using temporary directory for intermediates: {temp_dir}")
+    else:
+        intermediate_dir = output_dir
+        click.echo(f"📁 Keeping intermediate files in: {output_dir}")
+
+    try:
+        analysis_file = None
+        detected_language = language or 'en'
+        detected_type = document_type
+
+        # ============================================
+        # STEP 1: Analyze Document Image (unless skipped)
+        # ============================================
+        if not skip_analysis:
+            click.echo("\n" + "="*60)
+            if analyze_only:
+                click.echo("🔍 Analyzing Document Image (Extract Only Mode)")
+            else:
+                click.echo("🔍 STEP 1/4: Analyzing Document Image")
+            click.echo("="*60)
+
+            analysis_file = os.path.join(intermediate_dir, 'document_analysis.json')
+
+            cmd = [sys.executable, 'analyze_document.py']
+            cmd.extend(['-i', image])
+            cmd.extend(['-o', intermediate_dir])
+            cmd.extend(['--output-file', 'document_analysis.json'])
+
+            click.echo(f"Running: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                click.echo(f"❌ Document analysis failed: {result.stderr}")
+                return 1
+
+            click.echo(result.stdout)
+
+            # Load analysis results
+            with open(analysis_file, 'r', encoding='utf-8') as f:
+                analysis_data = json.load(f)
+
+            # Extract detected values
+            detected_type = analysis_data.get('document_type', '')
+            detected_language = analysis_data.get('detected_language', 'en')
+            detected_entities = analysis_data.get('extracted_entities', {})
+
+            # Use detected values unless overridden
+            if not document_type:
+                document_type = detected_type
+            if not language:
+                language = detected_language
+            if not entity_fields:
+                entity_fields = ','.join(detected_entities.keys()) if detected_entities else ''
+
+            click.echo(f"\n📊 Analysis Results:")
+            click.echo(f"  • Document Type: {detected_type}")
+            click.echo(f"  • Language: {detected_language}")
+            click.echo(f"  • Entities: {list(detected_entities.keys())}")
+
+            # If analyze-only mode, stop here and display success message
+            if analyze_only:
+                click.echo("\n" + "="*60)
+                click.echo("✅ ANALYSIS COMPLETED SUCCESSFULLY!")
+                click.echo("="*60)
+                click.echo(f"\n📊 Summary:")
+                click.echo(f"  • Source Image: {os.path.basename(image)}")
+                click.echo(f"  • Document Type: {detected_type}")
+                click.echo(f"  • Language: {detected_language}")
+                click.echo(f"  • Extracted {len(detected_entities)} entities")
+                click.echo(f"  • Analysis saved to: {os.path.abspath(analysis_file)}")
+
+                # Display extracted entities
+                if detected_entities:
+                    click.echo(f"\n📋 Extracted PII/Entities:")
+                    for entity_name, entity_value in detected_entities.items():
+                        # Truncate long values for display
+                        display_value = str(entity_value)
+                        if len(display_value) > 60:
+                            display_value = display_value[:57] + "..."
+                        click.echo(f"  • {entity_name}: {display_value}")
+
+                click.echo(f"\n💡 Use this analysis file with generate_entities.py or the full homoform pipeline")
+                click.echo(f"   to create synthetic documents based on this template.")
+                return 0
+
+        else:
+            click.echo("\n" + "="*60)
+            click.echo("⏭️  STEP 1/4: Skipping Analysis (using provided parameters)")
+            click.echo("="*60)
+            language = language or 'en'
+            click.echo(f"  • Document Type: {document_type}")
+            click.echo(f"  • Language: {language}")
+            click.echo(f"  • Entity Fields: {entity_fields}")
+
+        # ============================================
+        # STEP 2: Generate Entity Data
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("📊 STEP 2/4: Generating Synthetic Entity Data")
+        click.echo("="*60)
+
+        entity_file = os.path.join(intermediate_dir, 'entity_data.json')
+
+        cmd = [sys.executable, 'generate_entities.py']
+
+        if analysis_file and not skip_analysis:
+            cmd.extend(['-a', analysis_file])
+        else:
+            cmd.extend(['-t', document_type])
+            cmd.extend(['-e', entity_fields])
+
+        cmd.extend(['-c', str(count)])
+        cmd.extend(['-l', language])
+        cmd.extend(['-o', intermediate_dir])
+        cmd.extend(['-f', 'entity_data.json'])
+
+        click.echo(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            click.echo(f"❌ Entity generation failed: {result.stderr}")
+            return 1
+
+        click.echo(result.stdout)
+
+        # ============================================
+        # STEP 3: Generate HTML Documents with Image Template
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("📝 STEP 3/4: Generating HTML Documents (using image as template)")
+        click.echo("="*60)
+
+        cmd = [sys.executable, 'generate_documents.py']
+        cmd.extend(['-e', entity_file])
+        cmd.extend(['-i', image])  # Always use the image as template
+
+        if document_type:
+            cmd.extend(['-t', document_type])
+        cmd.extend(['-l', language])
+
+        if instructions:
+            cmd.extend(['-I', instructions])
+
+        cmd.extend(['-o', intermediate_dir])
+        cmd.extend(['-s', str(start_index)])
+
+        click.echo(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            click.echo(f"❌ Document generation failed: {result.stderr}")
+            return 1
+
+        click.echo(result.stdout)
+
+        # ============================================
+        # STEP 4: Convert to PDF
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("🖨️  STEP 4/4: Converting to PDF")
+        click.echo("="*60)
+
+        cmd = [sys.executable, 'convert_to_pdf.py']
+        cmd.extend(['-i', intermediate_dir])
+
+        # Only specify different output dir if not using intermediate dir
+        if intermediate_dir != output_dir:
+            cmd.extend(['-o', output_dir])
+
+        cmd.extend(['-c', pdf_converter])
+        cmd.extend(['-p', paper_size])
+
+        if keep_intermediates:
+            cmd.append('--keep-html')
+
+        click.echo(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            click.echo(f"❌ PDF conversion failed: {result.stderr}")
+            return 1
+
+        click.echo(result.stdout)
+
+        # ============================================
+        # CLEANUP & SUMMARY
+        # ============================================
+        click.echo("\n" + "="*60)
+        click.echo("✅ HOMOFORM PIPELINE COMPLETED SUCCESSFULLY!")
+        click.echo("="*60)
+
+        # Count generated PDFs
+        pdf_files = list(Path(output_dir).glob('*.pdf'))
+        click.echo(f"\n📊 Summary:")
+        click.echo(f"  • Source Image: {os.path.basename(image)}")
+        click.echo(f"  • Generated {len(pdf_files)} synthetic documents")
+        click.echo(f"  • Document Type: {document_type}")
+        click.echo(f"  • Language: {language}")
+        click.echo(f"  • Output Directory: {os.path.abspath(output_dir)}")
+
+        if not keep_intermediates and os.path.exists(temp_dir):
+            # Clean up temporary directory
+            import shutil
+            shutil.rmtree(temp_dir)
+            click.echo(f"  • Cleaned up temporary files")
+        else:
+            click.echo(f"  • Intermediate files kept in: {intermediate_dir}")
+
+        # List first few PDFs
+        if pdf_files:
+            click.echo(f"\n📄 Generated PDFs:")
+            for pdf in sorted(pdf_files)[:5]:
+                click.echo(f"  • {pdf.name}")
+            if len(pdf_files) > 5:
+                click.echo(f"  • ... and {len(pdf_files) - 5} more")
+
+        click.echo(f"\n💡 These documents are synthetic versions based on: {image}")
+        click.echo(f"   Each has the same structure but different generated data.")
+
+        return 0
+
+    except Exception as e:
+        click.echo(f"\n❌ Pipeline error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1
+    finally:
+        # Always clean up temp directory on error if it exists
+        if not keep_intermediates and 'temp_dir' in locals() and os.path.exists(temp_dir):
+            import shutil
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+
+if __name__ == '__main__':
+    main()
