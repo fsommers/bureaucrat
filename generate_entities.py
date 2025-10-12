@@ -23,8 +23,8 @@ from config import DEFAULT_OUTPUT_DIR, LANGUAGE_CODES, AI_PROVIDER
 @click.command()
 @click.option('--document-type', '-t', 
               help='Type of document (e.g., "catering invoice for birthday party", "medical consultation report")')
-@click.option('--entity-fields', '-e', 
-              help='Comma-separated list of entity fields (e.g., "customer name,invoice number,total amount")')
+@click.option('--entity-fields', '-e', multiple=True,
+              help='Entity field(s) - can be specified multiple times or as comma-separated (e.g., -e "customer name" -e "amount" or -e "customer name,amount")')
 @click.option('--count', '-c', type=int,
               help='Number of entity records to generate')
 @click.option('--language', '-l', default='en',
@@ -67,7 +67,7 @@ def generate_entities(document_type, entity_fields, count, language, analysis_js
             # Use JSON values if manual parameters not provided
             if not document_type:
                 document_type = json_document_type
-            if not entity_fields:
+            if not entity_fields or (isinstance(entity_fields, tuple) and len(entity_fields) == 0):
                 # Extract entity field names from the analysis
                 entity_fields = ','.join(json_entities.keys()) if json_entities else ''
             if language == 'en' and json_language:
@@ -97,8 +97,19 @@ def generate_entities(document_type, entity_fields, count, language, analysis_js
         click.echo("Error: Count must be specified (use -c)")
         return 1
     
-    # Parse entity fields
-    fields = [field.strip() for field in entity_fields.split(',')]
+    # Parse entity fields - handle multiple -e options
+    if isinstance(entity_fields, tuple):
+        # Multiple -e options were provided
+        all_fields = []
+        for field_group in entity_fields:
+            # Each field_group might be comma-separated
+            all_fields.extend([f.strip() for f in field_group.split(',')])
+        fields = all_fields
+    elif entity_fields:
+        # Single entity_fields string (backward compatibility)
+        fields = [field.strip() for field in entity_fields.split(',')]
+    else:
+        fields = []
     
     # Validate inputs
     if count <= 0:

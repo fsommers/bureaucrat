@@ -26,8 +26,8 @@ import sys
 @click.command()
 @click.option('--document-type', '-t', required=True,
               help='Type of document to generate (e.g., "business invoice for catering party")')
-@click.option('--entity-fields', '-e', required=True,
-              help='Comma-separated list of entity fields (e.g., "customer name,employee name,date")')
+@click.option('--entity-fields', '-e', multiple=True, required=True,
+              help='Entity field(s) - can be specified multiple times or as comma-separated (e.g., -e "customer name" -e "amount" or -e "customer name,amount")')
 @click.option('--count', '-c', default=DEFAULT_DOCUMENT_COUNT, type=int,
               help=f'Number of documents to generate (default: {DEFAULT_DOCUMENT_COUNT})')
 @click.option('--language', '-l', default='en',
@@ -102,7 +102,16 @@ def main(document_type, entity_fields, count, language, analysis_json,
             cmd.extend(['-a', analysis_json])
         else:
             cmd.extend(['-t', document_type])
-            cmd.extend(['-e', entity_fields])
+            # Handle multiple entity fields - join them if multiple were provided
+            if isinstance(entity_fields, tuple):
+                # Flatten all fields - some may be comma-separated
+                all_fields = []
+                for field_group in entity_fields:
+                    all_fields.extend([f.strip() for f in field_group.split(',')])
+                entity_fields_str = ','.join(all_fields)
+            else:
+                entity_fields_str = entity_fields
+            cmd.extend(['-e', entity_fields_str])
 
         cmd.extend(['-c', str(count)])
         cmd.extend(['-l', language])
