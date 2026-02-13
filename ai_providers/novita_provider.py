@@ -47,7 +47,10 @@ class NovitaProvider(AIProvider):
             raise ValueError("NOVITA_API_KEY not found in configuration")
 
         if not self.config.model_name:
-            self.config.model_name = 'qwen/qwen3-vl-235b-a22b-instruct'
+            self.config.model_name = 'deepseek/deepseek-v3-0324'
+
+        if not self.config.vision_model_name:
+            self.config.vision_model_name = 'qwen/qwen3-vl-235b-a22b-instruct'
 
     def _initialize_client(self) -> None:
         """Initialize the OpenAI-compatible client for Novita."""
@@ -59,27 +62,19 @@ class NovitaProvider(AIProvider):
         self.is_vision_model = self._check_vision_capability()
 
     def _check_vision_capability(self) -> bool:
-        """Check if the model supports vision capabilities."""
-        vision_patterns = [
-            'vl', 'vision', 'ocr',
-            'llava', 'florence',
-            'llama-4-maverick', 'llama-4-scout',
-            'glm-4.6v', 'glm-4.5v',
-        ]
-        if self.config.model_name:
-            model_lower = self.config.model_name.lower()
-            return any(vp in model_lower for vp in vision_patterns)
-        return False
+        """Check if a vision model is configured."""
+        return bool(self.config.vision_model_name)
 
     def supports_vision(self) -> bool:
         """Check if the provider supports vision capabilities."""
         return self.is_vision_model
 
     def _chat(self, messages: List[Dict], max_tokens: int = None,
-              temperature: float = None) -> str:
+              temperature: float = None, use_vision_model: bool = False) -> str:
         """Send a chat completion request and return the response text."""
+        model = self.config.vision_model_name if use_vision_model else self.config.model_name
         response = self.client.chat.completions.create(
-            model=self.config.model_name,
+            model=model,
             messages=messages,
             max_tokens=max_tokens or self.config.max_tokens,
             temperature=temperature if temperature is not None else self.config.temperature,
@@ -180,13 +175,15 @@ class NovitaProvider(AIProvider):
             print("⚠️  Template image provided but model doesn't support vision. Ignoring template.")
             template_image_path = None
 
+        use_vision = template_image_path is not None
+
         prompt = self._create_document_generation_prompt(
             document_type, entity_data, language, template_image_path, instructions
         )
 
         try:
             messages = [{"role": "user", "content": self._build_content(prompt, template_image_path)}]
-            response = self._chat(messages)
+            response = self._chat(messages, use_vision_model=use_vision)
             return self._clean_html_content(response)
 
         except APIError as e:
@@ -210,8 +207,8 @@ class NovitaProvider(AIProvider):
         """Analyze document image using Novita.ai vision capabilities."""
         if not self.is_vision_model:
             raise NotImplementedError(
-                f"Model '{self.config.model_name}' does not support vision capabilities. "
-                "Please use a vision-capable model like 'qwen/qwen3-vl-235b-a22b-instruct'."
+                "No vision model configured. "
+                "Set NOVITA_VISION_MODEL to a vision-capable model like 'qwen/qwen3-vl-235b-a22b-instruct'."
             )
 
         try:
@@ -224,7 +221,7 @@ class NovitaProvider(AIProvider):
         try:
             content = self._build_content(prompt, image_path)
             messages = [{"role": "user", "content": content}]
-            response = self._chat(messages, max_tokens=1024, temperature=0.3)
+            response = self._chat(messages, max_tokens=1024, temperature=0.3, use_vision_model=True)
 
             response_text = response.strip()
             response_text = self._clean_json_response(response_text)

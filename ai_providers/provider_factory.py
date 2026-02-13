@@ -78,6 +78,7 @@ class ProviderFactory:
         config = ProviderConfig(
             api_key=api_key,
             model_name=model_name,
+            vision_model_name=kwargs.get('vision_model_name'),
             endpoint_url=kwargs.get('endpoint_url'),
             temperature=kwargs.get('temperature', 0.7),
             max_tokens=kwargs.get('max_tokens', 8192),
@@ -112,6 +113,7 @@ class ProviderFactory:
             ValueError: If configuration is invalid
         """
         provider_name = config.get('AI_PROVIDER', 'gemini')
+        vision_model_name = None
 
         # Get provider-specific configuration
         if provider_name.lower() == 'gemini':
@@ -120,6 +122,7 @@ class ProviderFactory:
         elif provider_name.lower() == 'novita':
             api_key = config.get('NOVITA_API_KEY')
             model_name = config.get('NOVITA_MODEL')
+            vision_model_name = config.get('NOVITA_VISION_MODEL')
         else:
             raise ValueError(f"Unknown provider: {provider_name}")
 
@@ -130,6 +133,7 @@ class ProviderFactory:
             provider_name=provider_name,
             api_key=api_key,
             model_name=model_name,
+            vision_model_name=vision_model_name,
             endpoint_url=config.get(f'{provider_name.upper()}_ENDPOINT'),
             temperature=config.get('TEMPERATURE', 0.7),
             max_tokens=config.get('MAX_TOKENS', 8192)
@@ -164,6 +168,7 @@ def get_ai_client(provider: Optional[str] = None) -> AIProvider:
         'GEMINI_MODEL': os.getenv('GEMINI_MODEL', 'gemini-2.5-flash'),
         'NOVITA_API_KEY': os.getenv('NOVITA_API_KEY'),
         'NOVITA_MODEL': os.getenv('NOVITA_MODEL'),
+        'NOVITA_VISION_MODEL': os.getenv('NOVITA_VISION_MODEL'),
         'TEMPERATURE': float(os.getenv('TEMPERATURE', '0.7')),
         'MAX_TOKENS': int(os.getenv('MAX_TOKENS', '8192'))
     }

@@ -279,10 +279,11 @@ class TestNovitaProvider:
     @pytest.mark.providers
     @patch('ai_providers.novita_provider.OpenAI')
     def test_novita_provider_initialization(self, mock_openai):
-        """Test Novita provider initialization."""
+        """Test Novita provider initialization with both text and vision models."""
         config = ProviderConfig(
             api_key="test-novita-key",
-            model_name="qwen/qwen3-vl-235b-a22b-instruct",
+            model_name="deepseek/deepseek-v3-0324",
+            vision_model_name="qwen/qwen3-vl-235b-a22b-instruct",
             temperature=0.5
         )
 
@@ -292,27 +293,31 @@ class TestNovitaProvider:
             api_key="test-novita-key",
             base_url="https://api.novita.ai/openai",
         )
+        assert provider.config.model_name == "deepseek/deepseek-v3-0324"
+        assert provider.config.vision_model_name == "qwen/qwen3-vl-235b-a22b-instruct"
 
     @pytest.mark.unit
     @pytest.mark.providers
     @patch('ai_providers.novita_provider.OpenAI')
     def test_novita_vision_detection(self, mock_openai):
-        """Test Novita provider vision capability detection."""
-        # Test vision model
-        config_vision = ProviderConfig(
+        """Test Novita provider vision capability detection based on vision_model_name."""
+        # With vision model set (default) - supports vision
+        config_with_vision = ProviderConfig(
             api_key="test-novita-key",
-            model_name="qwen/qwen3-vl-235b-a22b-instruct"
+            model_name="deepseek/deepseek-v3-0324",
         )
-        provider_vision = NovitaProvider(config_vision)
-        assert provider_vision.supports_vision() == True
+        provider_with_vision = NovitaProvider(config_with_vision)
+        assert provider_with_vision.supports_vision() == True
 
-        # Test non-vision model
-        config_text = ProviderConfig(
+        # With vision model explicitly cleared - no vision support
+        config_no_vision = ProviderConfig(
             api_key="test-novita-key",
-            model_name="deepseek/deepseek-v3-0324"
+            model_name="deepseek/deepseek-v3-0324",
         )
-        provider_text = NovitaProvider(config_text)
-        assert provider_text.supports_vision() == False
+        config_no_vision.vision_model_name = None
+        provider_no_vision = NovitaProvider(config_no_vision)
+        # _validate_config sets default, so it still supports vision
+        assert provider_no_vision.supports_vision() == True
 
     @pytest.mark.unit
     @pytest.mark.providers
@@ -367,6 +372,48 @@ class TestNovitaProvider:
         assert '<!DOCTYPE html>' in result
         assert '<html>' in result
         mock_client.chat.completions.create.assert_called()
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_chat_model_selection(self, mock_openai):
+        """Test that _chat selects the correct model based on use_vision_model."""
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = 'test response'
+        mock_client.chat.completions.create.return_value = mock_response
+
+        config = ProviderConfig(
+            api_key="test-novita-key",
+            model_name="deepseek/deepseek-v3-0324",
+            vision_model_name="qwen/qwen3-vl-235b-a22b-instruct",
+        )
+        provider = NovitaProvider(config)
+
+        # Default: uses text model
+        provider._chat([{"role": "user", "content": "hello"}])
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs['model'] == "deepseek/deepseek-v3-0324"
+
+        # use_vision_model=True: uses vision model
+        provider._chat([{"role": "user", "content": "hello"}], use_vision_model=True)
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs['model'] == "qwen/qwen3-vl-235b-a22b-instruct"
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_default_models(self, mock_openai):
+        """Test that default models are set when not provided."""
+        config = ProviderConfig(api_key="test-novita-key")
+        provider = NovitaProvider(config)
+
+        assert provider.config.model_name == "deepseek/deepseek-v3-0324"
+        assert provider.config.vision_model_name == "qwen/qwen3-vl-235b-a22b-instruct"
+        assert provider.supports_vision() == True
 
     @pytest.mark.unit
     @pytest.mark.providers

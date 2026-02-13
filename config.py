@@ -26,7 +26,8 @@ GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview')
 
 # Novita.ai Configuration
 NOVITA_API_KEY = os.getenv('NOVITA_API_KEY')
-NOVITA_MODEL = os.getenv('NOVITA_MODEL', 'qwen/qwen3-vl-235b-a22b-instruct')
+NOVITA_MODEL = os.getenv('NOVITA_MODEL', 'deepseek/deepseek-v3-0324')
+NOVITA_VISION_MODEL = os.getenv('NOVITA_VISION_MODEL', 'qwen/qwen3-vl-235b-a22b-instruct')
 
 # General AI Configuration
 TEMPERATURE = float(os.getenv('TEMPERATURE', '0.7'))

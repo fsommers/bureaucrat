@@ -29,6 +29,7 @@ class ProviderConfig:
     """Configuration for an AI provider."""
     api_key: str
     model_name: Optional[str] = None
+    vision_model_name: Optional[str] = None
     endpoint_url: Optional[str] = None
     temperature: float = 0.7
     max_tokens: int = 8192
@@ -173,13 +174,16 @@ class AIProvider(ABC):
         Returns:
             Dictionary with model information
         """
-        return {
+        info = {
             'provider': self.get_provider_name(),
             'model': self.config.model_name,
             'temperature': self.config.temperature,
             'max_tokens': self.config.max_tokens,
             'supports_vision': self.supports_vision()
         }
+        if self.config.vision_model_name:
+            info['vision_model'] = self.config.vision_model_name
+        return info
 
     def handle_safety_filter(self, response: Any, retry_with_simplified: bool = True) -> Any:
         """
