@@ -40,7 +40,7 @@ class AIProvider(ABC):
     """
     Abstract base class for AI providers.
 
-    All AI providers (Gemini, Hugging Face, etc.) must inherit from this
+    All AI providers (Gemini, Novita, etc.) must inherit from this
     class and implement the required methods.
     """
 

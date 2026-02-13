@@ -35,7 +35,7 @@ class ProviderFactory:
         Register a new AI provider.
 
         Args:
-            name: Name of the provider (e.g., "gemini", "huggingface")
+            name: Name of the provider (e.g., "gemini", "novita")
             provider_class: The provider class that inherits from AIProvider
         """
         cls._providers[name.lower()] = provider_class
@@ -117,10 +117,9 @@ class ProviderFactory:
         if provider_name.lower() == 'gemini':
             api_key = config.get('GEMINI_API_KEY')
             model_name = config.get('GEMINI_MODEL', 'gemini-2.5-flash')
-        elif provider_name.lower() == 'huggingface':
-            api_key = config.get('HUGGINGFACE_API_KEY')
-            model_name = config.get('HUGGINGFACE_MODEL')
-            endpoint_url = config.get('HUGGINGFACE_ENDPOINT')
+        elif provider_name.lower() == 'novita':
+            api_key = config.get('NOVITA_API_KEY')
+            model_name = config.get('NOVITA_MODEL')
         else:
             raise ValueError(f"Unknown provider: {provider_name}")
 
@@ -163,9 +162,8 @@ def get_ai_client(provider: Optional[str] = None) -> AIProvider:
         'AI_PROVIDER': provider,
         'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY'),
         'GEMINI_MODEL': os.getenv('GEMINI_MODEL', 'gemini-2.5-flash'),
-        'HUGGINGFACE_API_KEY': os.getenv('HUGGINGFACE_API_KEY'),
-        'HUGGINGFACE_MODEL': os.getenv('HUGGINGFACE_MODEL'),
-        'HUGGINGFACE_ENDPOINT': os.getenv('HUGGINGFACE_ENDPOINT'),
+        'NOVITA_API_KEY': os.getenv('NOVITA_API_KEY'),
+        'NOVITA_MODEL': os.getenv('NOVITA_MODEL'),
         'TEMPERATURE': float(os.getenv('TEMPERATURE', '0.7')),
         'MAX_TOKENS': int(os.getenv('MAX_TOKENS', '8192'))
     }

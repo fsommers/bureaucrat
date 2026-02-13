@@ -18,7 +18,7 @@
 Check and verify the AI provider abstraction layer configuration.
 
 This script helps verify that the provider system is correctly configured
-and working with your chosen AI provider (Gemini, Hugging Face, etc.).
+and working with your chosen AI provider (Gemini, Novita, etc.).
 """
 
 import click
@@ -26,7 +26,7 @@ from ai_providers import get_ai_client, ProviderFactory
 
 
 @click.command()
-@click.option('--provider', '-p', default='gemini', help='AI provider to check (gemini/huggingface)')
+@click.option('--provider', '-p', default='gemini', help='AI provider to check (gemini/novita)')
 @click.option('--test-generation', is_flag=True, help='Test entity generation')
 @click.option('--test-vision', is_flag=True, help='Test vision capabilities')
 def check_providers(provider, test_generation, test_vision):
@@ -81,8 +81,8 @@ def check_providers(provider, test_generation, test_vision):
         click.echo("\n💡 Make sure you have set up your .env file with the required API keys:")
         if provider == 'gemini':
             click.echo("  GEMINI_API_KEY=your_api_key_here")
-        elif provider == 'huggingface':
-            click.echo("  HUGGINGFACE_API_KEY=your_api_key_here")
+        elif provider == 'novita':
+            click.echo("  NOVITA_API_KEY=your_api_key_here")
 
     except Exception as e:
         click.echo(f"❌ Unexpected Error: {e}")

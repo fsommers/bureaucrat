@@ -16,17 +16,17 @@
 AI Provider abstraction layer for document generation.
 
 This package provides a unified interface for different AI providers
-(Gemini, Hugging Face, etc.) to generate documents and analyze images.
+(Gemini, Novita, etc.) to generate documents and analyze images.
 """
 
 from .base_provider import AIProvider, ProviderConfig
 from .provider_factory import ProviderFactory, get_ai_client
 from .gemini_provider import GeminiProvider
-from .huggingface_provider import HuggingFaceProvider
+from .novita_provider import NovitaProvider
 
 # Register available providers
 ProviderFactory.register_provider('gemini', GeminiProvider)
-ProviderFactory.register_provider('huggingface', HuggingFaceProvider)
+ProviderFactory.register_provider('novita', NovitaProvider)
 
 __all__ = [
     'AIProvider',
@@ -34,5 +34,5 @@ __all__ = [
     'ProviderFactory',
     'get_ai_client',
     'GeminiProvider',
-    'HuggingFaceProvider'
+    'NovitaProvider'
 ]
