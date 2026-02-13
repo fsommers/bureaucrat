@@ -52,9 +52,15 @@ import sys
               help='Skip analysis step and use image as template only (requires -t and -e)')
 @click.option('--analyze-only', is_flag=True,
               help='Only analyze the document and extract PII/entities, do not generate new documents')
+@click.option('--distort', is_flag=True,
+              help='Apply scan-like distortion effects to generated PDFs')
+@click.option('--distort-intensity', default='medium',
+              type=click.Choice(['low', 'medium', 'high']),
+              help='Distortion intensity preset (default: medium)')
 def main(image, count, output_dir, language, document_type, entity_fields,
          pdf_converter, paper_size, keep_intermediates, start_index,
-         instructions, skip_analysis, analyze_only):
+         instructions, skip_analysis, analyze_only,
+         distort, distort_intensity):
     """
     Generate synthetic documents based on an existing document image.
 
@@ -114,6 +120,8 @@ def main(image, count, output_dir, language, document_type, entity_fields,
         intermediate_dir = output_dir
         click.echo(f"📁 Keeping intermediate files in: {output_dir}")
 
+    total_steps = 5 if distort else 4
+
     try:
         analysis_file = None
         detected_language = language or 'en'
@@ -127,7 +135,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
             if analyze_only:
                 click.echo("🔍 Analyzing Document Image (Extract Only Mode)")
             else:
-                click.echo("🔍 STEP 1/4: Analyzing Document Image")
+                click.echo(f"🔍 STEP 1/{total_steps}: Analyzing Document Image")
             click.echo("="*60)
 
             analysis_file = os.path.join(intermediate_dir, 'document_analysis.json')
@@ -196,7 +204,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
 
         else:
             click.echo("\n" + "="*60)
-            click.echo("⏭️  STEP 1/4: Skipping Analysis (using provided parameters)")
+            click.echo(f"⏭️  STEP 1/{total_steps}: Skipping Analysis (using provided parameters)")
             click.echo("="*60)
             language = language or 'en'
             click.echo(f"  • Document Type: {document_type}")
@@ -207,7 +215,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
         # STEP 2: Generate Entity Data
         # ============================================
         click.echo("\n" + "="*60)
-        click.echo("📊 STEP 2/4: Generating Synthetic Entity Data")
+        click.echo(f"📊 STEP 2/{total_steps}: Generating Synthetic Entity Data")
         click.echo("="*60)
 
         entity_file = os.path.join(intermediate_dir, 'entity_data.json')
@@ -238,7 +246,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
         # STEP 3: Generate HTML Documents with Image Template
         # ============================================
         click.echo("\n" + "="*60)
-        click.echo("📝 STEP 3/4: Generating HTML Documents (using image as template)")
+        click.echo(f"📝 STEP 3/{total_steps}: Generating HTML Documents (using image as template)")
         click.echo("="*60)
 
         cmd = [sys.executable, 'generate_documents.py']
@@ -268,7 +276,7 @@ def main(image, count, output_dir, language, document_type, entity_fields,
         # STEP 4: Convert to PDF
         # ============================================
         click.echo("\n" + "="*60)
-        click.echo("🖨️  STEP 4/4: Converting to PDF")
+        click.echo(f"🖨️  STEP 4/{total_steps}: Converting to PDF")
         click.echo("="*60)
 
         cmd = [sys.executable, 'convert_to_pdf.py']
@@ -292,6 +300,27 @@ def main(image, count, output_dir, language, document_type, entity_fields,
             return 1
 
         click.echo(result.stdout)
+
+        # ============================================
+        # STEP 5: Apply Scan Distortion (optional)
+        # ============================================
+        if distort:
+            click.echo("\n" + "="*60)
+            click.echo(f"📸 STEP 5/{total_steps}: Applying Scan Distortion")
+            click.echo("="*60)
+
+            cmd = [sys.executable, 'distort_scan.py']
+            cmd.extend(['-i', output_dir])
+            cmd.extend(['-n', distort_intensity])
+
+            click.echo(f"Running: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                click.echo(f"❌ Distortion failed: {result.stderr}")
+                return 1
+
+            click.echo(result.stdout)
 
         # ============================================
         # CLEANUP & SUMMARY

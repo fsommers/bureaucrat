@@ -19,7 +19,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from ai_providers import AIProvider, ProviderFactory, get_ai_client
 from ai_providers.gemini_provider import GeminiProvider
-from ai_providers.huggingface_provider import HuggingFaceProvider
+from ai_providers.novita_provider import NovitaProvider
 from ai_providers.base_provider import ProviderConfig
 
 
@@ -272,66 +272,69 @@ class TestGeminiProvider:
         mock_model.generate_content.assert_called()
 
 
-class TestHuggingFaceProvider:
-    """Test the Hugging Face provider implementation."""
+class TestNovitaProvider:
+    """Test the Novita.ai provider implementation."""
 
     @pytest.mark.unit
     @pytest.mark.providers
-    @patch('ai_providers.huggingface_provider.InferenceClient')
-    def test_huggingface_provider_initialization(self, mock_client):
-        """Test Hugging Face provider initialization."""
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_provider_initialization(self, mock_openai):
+        """Test Novita provider initialization with both text and vision models."""
         config = ProviderConfig(
-            api_key="test-hf-key",
-            model_name="meta-llama/Llama-3-8B-Instruct",
+            api_key="test-novita-key",
+            model_name="deepseek/deepseek-v3-0324",
+            vision_model_name="qwen/qwen3-vl-235b-a22b-instruct",
             temperature=0.5
         )
 
-        provider = HuggingFaceProvider(config)
+        provider = NovitaProvider(config)
 
-        # Verify InferenceClient was created
-        mock_client.assert_called_once_with(
-            model="meta-llama/Llama-3-8B-Instruct",
-            token="test-hf-key",
-            base_url=None
+        mock_openai.assert_called_once_with(
+            api_key="test-novita-key",
+            base_url="https://api.novita.ai/openai",
         )
+        assert provider.config.model_name == "deepseek/deepseek-v3-0324"
+        assert provider.config.vision_model_name == "qwen/qwen3-vl-235b-a22b-instruct"
 
     @pytest.mark.unit
     @pytest.mark.providers
-    @patch('ai_providers.huggingface_provider.InferenceClient')
-    def test_huggingface_vision_detection(self, mock_client):
-        """Test Hugging Face provider vision capability detection."""
-        # Test vision model
-        config_vision = ProviderConfig(
-            api_key="test-hf-key",
-            model_name="meta-llama/Llama-3.2-11B-Vision-Instruct"
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_vision_detection(self, mock_openai):
+        """Test Novita provider vision capability detection based on vision_model_name."""
+        # With vision model set (default) - supports vision
+        config_with_vision = ProviderConfig(
+            api_key="test-novita-key",
+            model_name="deepseek/deepseek-v3-0324",
         )
-        provider_vision = HuggingFaceProvider(config_vision)
-        assert provider_vision.supports_vision() == True
+        provider_with_vision = NovitaProvider(config_with_vision)
+        assert provider_with_vision.supports_vision() == True
 
-        # Test non-vision model
-        config_text = ProviderConfig(
-            api_key="test-hf-key",
-            model_name="meta-llama/Llama-3-8B-Instruct"
+        # With vision model explicitly cleared - no vision support
+        config_no_vision = ProviderConfig(
+            api_key="test-novita-key",
+            model_name="deepseek/deepseek-v3-0324",
         )
-        provider_text = HuggingFaceProvider(config_text)
-        assert provider_text.supports_vision() == False
+        config_no_vision.vision_model_name = None
+        provider_no_vision = NovitaProvider(config_no_vision)
+        # _validate_config sets default, so it still supports vision
+        assert provider_no_vision.supports_vision() == True
 
     @pytest.mark.unit
     @pytest.mark.providers
-    @patch('ai_providers.huggingface_provider.InferenceClient')
-    def test_huggingface_generate_bulk_entity_data(self, mock_client):
-        """Test Hugging Face provider's bulk entity generation."""
-        # Setup mock
-        mock_instance = MagicMock()
-        mock_client.return_value = mock_instance
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_generate_bulk_entity_data(self, mock_openai):
+        """Test Novita provider's bulk entity generation."""
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
 
-        # Mock successful response
-        mock_instance.text_generation.return_value = '[{"name": "Test Company", "amount": "100"}]'
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = '[{"name": "Test Company", "amount": "100"}]'
+        mock_client.chat.completions.create.return_value = mock_response
 
-        config = ProviderConfig(api_key="test-hf-key")
-        provider = HuggingFaceProvider(config)
+        config = ProviderConfig(api_key="test-novita-key")
+        provider = NovitaProvider(config)
 
-        # Test generation
         result = provider.generate_bulk_entity_data(
             "invoice",
             ["name", "amount"],
@@ -342,24 +345,24 @@ class TestHuggingFaceProvider:
         assert isinstance(result, list)
         assert len(result) == 1
         assert result[0]["name"] == "Test Company"
-        mock_instance.text_generation.assert_called()
+        mock_client.chat.completions.create.assert_called()
 
     @pytest.mark.unit
     @pytest.mark.providers
-    @patch('ai_providers.huggingface_provider.InferenceClient')
-    def test_huggingface_generate_document(self, mock_client):
-        """Test Hugging Face provider's document generation."""
-        # Setup mock
-        mock_instance = MagicMock()
-        mock_client.return_value = mock_instance
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_generate_document(self, mock_openai):
+        """Test Novita provider's document generation."""
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
 
-        # Mock HTML response
-        mock_instance.text_generation.return_value = '<!DOCTYPE html><html><body>Test Document</body></html>'
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = '<!DOCTYPE html><html><body>Test Document</body></html>'
+        mock_client.chat.completions.create.return_value = mock_response
 
-        config = ProviderConfig(api_key="test-hf-key")
-        provider = HuggingFaceProvider(config)
+        config = ProviderConfig(api_key="test-novita-key")
+        provider = NovitaProvider(config)
 
-        # Test generation
         result = provider.generate_document_with_data(
             "invoice",
             {"company": "Test Corp", "amount": "100"},
@@ -368,18 +371,60 @@ class TestHuggingFaceProvider:
 
         assert '<!DOCTYPE html>' in result
         assert '<html>' in result
-        mock_instance.text_generation.assert_called()
+        mock_client.chat.completions.create.assert_called()
 
     @pytest.mark.unit
     @pytest.mark.providers
-    def test_huggingface_no_api_key_error(self):
-        """Test Hugging Face provider raises error without API key."""
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_chat_model_selection(self, mock_openai):
+        """Test that _chat selects the correct model based on use_vision_model."""
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = 'test response'
+        mock_client.chat.completions.create.return_value = mock_response
+
+        config = ProviderConfig(
+            api_key="test-novita-key",
+            model_name="deepseek/deepseek-v3-0324",
+            vision_model_name="qwen/qwen3-vl-235b-a22b-instruct",
+        )
+        provider = NovitaProvider(config)
+
+        # Default: uses text model
+        provider._chat([{"role": "user", "content": "hello"}])
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs['model'] == "deepseek/deepseek-v3-0324"
+
+        # use_vision_model=True: uses vision model
+        provider._chat([{"role": "user", "content": "hello"}], use_vision_model=True)
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs['model'] == "qwen/qwen3-vl-235b-a22b-instruct"
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    @patch('ai_providers.novita_provider.OpenAI')
+    def test_novita_default_models(self, mock_openai):
+        """Test that default models are set when not provided."""
+        config = ProviderConfig(api_key="test-novita-key")
+        provider = NovitaProvider(config)
+
+        assert provider.config.model_name == "deepseek/deepseek-v3-0324"
+        assert provider.config.vision_model_name == "qwen/qwen3-vl-235b-a22b-instruct"
+        assert provider.supports_vision() == True
+
+    @pytest.mark.unit
+    @pytest.mark.providers
+    def test_novita_no_api_key_error(self):
+        """Test Novita provider raises error without API key."""
         config = ProviderConfig(api_key=None)
 
         with pytest.raises(ValueError) as exc_info:
-            HuggingFaceProvider(config)
+            NovitaProvider(config)
 
-        assert "HUGGINGFACE_API_KEY" in str(exc_info.value)
+        assert "NOVITA_API_KEY" in str(exc_info.value)
 
 
 class TestProviderErrorHandling:

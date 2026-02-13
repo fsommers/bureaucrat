@@ -258,20 +258,21 @@ This is useful when working with enterprise customers that want to apply documen
 ## Features
 
 - **Unified Pipeline**: Single command to generate entities → create HTML → convert to PDF. You can also invoke and customize individuals steps in the pipeline.
-- **Multiple AI Providers**: Flexible abstraction layer supporting both Google Gemini and Hugging Face Inference API, with seamless switching between providers
+- **Multiple AI Providers**: Flexible abstraction layer supporting Google Gemini and Novita.ai (OpenAI-compatible), with seamless switching between providers
 - **Multi-Language Support**: Generate documents in 40+ languages with culturally appropriate content.
 - **Region-Specific Formatting**: Date formats, email domains, and legal text appropriate for each language/region. For example, if you specify Thai as the desired language, it will attempt to generate Thai person and company names, Thai addresses, and Thai currency amounts, and use Thai legal context for appropriate notices and disclosures, etc.
 - **Realistic Document Generation**: HTML documents with embedded CSS optimized for US Letter-size pages, but you can specify other output pages sizes as well, such as A4, etc.
 - **PDF Conversion**: Multiple conversion engines for high-quality PDF output
 - **Paper Texture Backgrounds**: Realistic paper backgrounds for authentic printed/scanned document appearance
-- **Mimic an Existing Document**: Analyze existing document images to extract structure and entities, and create similar-looking documents but with synthetic data. You can think of this as a sort of PII anonymizer. 
+- **Scan Distortion Effects**: Apply realistic scan-like distortions (rotation, noise, wrinkles, perspective skew) to generated PDFs
+- **Mimic an Existing Document**: Analyze existing document images to extract structure and entities, and create similar-looking documents but with synthetic data. You can think of this as a sort of PII anonymizer.
 
 ## LLM Provider Architecture
 Bureaucrat uses a flexible provider mechanism to connect backend LLMs for generating realistic data and richly formatted business documents.
 
 The system currently supports:
 - **Google Gemini API** - Fast, reliable, with excellent vision capabilities for document analysis
-- **Hugging Face Inference API** - Access to a wide range of open models including Llama, Mistral, and Qwen
+- **Novita.ai** - OpenAI-compatible API with access to models like DeepSeek and Qwen, with separate text/code and vision model configuration
 
 The provider abstraction layer allows seamless switching between different AI backends while maintaining consistent functionality across all document generation features.
 
@@ -302,8 +303,8 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your API keys:
 # - GEMINI_API_KEY for Google Gemini
-# - HUGGINGFACE_API_KEY for Hugging Face
-# - AI_PROVIDER to choose provider (gemini or huggingface)
+# - NOVITA_API_KEY for Novita.ai
+# - AI_PROVIDER to choose provider (gemini or novita)
 ```
 
 3. Add background images (optional):
@@ -354,6 +355,8 @@ The `generate` command creates documents with AI-generated layouts. Use this whe
 - `--keep-intermediates`: Keep entity JSON and HTML files
 - `-s, --start-index`: Starting document number (default: 1)
 - `-I, --instructions`: Additional instructions for the LLM
+- `--distort`: Apply scan-like distortion effects to generated PDFs
+- `--distort-intensity`: Distortion intensity preset (low/medium/high, default: medium)
 
 #### Clone Pipeline
 The `clone` command analyzes an existing document and creates new documents that match its layout while replacing the data with synthetic content.
@@ -372,6 +375,8 @@ The `clone` command analyzes an existing document and creates new documents that
 - `-I, --instructions`: Additional instructions for the LLM
 - `--skip-analysis`: Skip analysis step, use image as template only (requires -t and -e)
 - `--analyze-only`: Only analyze document and extract PII, do not generate new documents
+- `--distort`: Apply scan-like distortion effects to generated PDFs
+- `--distort-intensity`: Distortion intensity preset (low/medium/high, default: medium)
 
 ## Pipeline Details
 
@@ -462,42 +467,38 @@ The system supports multiple AI providers through an abstraction layer, allowing
 ### Currently Supported Providers
 
 #### Google Gemini (Default)
-- **Models**: Gemini 2.5 Flash (default), Gemini Pro
+- **Models**: Gemini 3 Flash Preview (default), Gemini Pro
 - **Features**: Full text generation and vision capabilities
 - **Best for**: Fast generation, document analysis, high-quality results
 - **Setup**: Requires `GEMINI_API_KEY` from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
-#### Hugging Face Inference API
-- **Models**: Wide range including Llama, Mistral, Qwen, and more
-- **Tested Models**:
-  - **Qwen/Qwen3-VL-235B-A22B-Thinking** - Excellent vision-language model with strong multilingual support
-  - **meta-llama/Meta-Llama-3-8B-Instruct** - Fast and efficient for text generation
-  - **mistralai/Mistral-7B-Instruct-v0.2** - Good balance of speed and quality
-- **Features**: Access to open-source models, some with vision capabilities
-- **Best for**: Flexibility, open models, specialized use cases
-- **Setup**: Requires `HUGGINGFACE_API_KEY` from [Hugging Face Settings](https://huggingface.co/settings/tokens)
+#### Novita.ai
+- **API**: OpenAI-compatible chat completions API
+- **Dual-Model Architecture**: Separate models for text/code and vision tasks
+  - **Text/Code Model** (`NOVITA_MODEL`): `deepseek/deepseek-v3-0324` (default) — used for entity generation and HTML document creation
+  - **Vision Model** (`NOVITA_VISION_MODEL`): `qwen/qwen3-vl-235b-a22b-instruct` (default) — used for document analysis and template matching
+- **Features**: Access to open-source models, automatic model routing per task
+- **Best for**: Flexibility, open models, cost-effective inference
+- **Setup**: Requires `NOVITA_API_KEY` from [Novita.ai Key Management](https://novita.ai/settings/key-management)
 
 ### Configuration
 
 Set your preferred provider in `.env`:
 
 ```bash
-# Choose provider: 'gemini' or 'huggingface'
-AI_PROVIDER=gemini  # or huggingface
+# Choose provider: 'gemini' or 'novita'
+AI_PROVIDER=gemini  # or novita
 
 # Google Gemini settings
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.5-flash  # Optional, defaults to gemini-2.5-flash
+GEMINI_MODEL=gemini-3-flash-preview  # Optional, defaults to gemini-3-flash-preview
 
-# Hugging Face settings
-HUGGINGFACE_API_KEY=your_huggingface_api_key_here
-# Recommended models:
-HUGGINGFACE_MODEL=Qwen/Qwen3-VL-235B-A22B-Thinking  # Vision + text (recommended)
-# HUGGINGFACE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct  # Text only
-# HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.2  # Text only
-
-# Optional: Use a custom inference endpoint
-# HUGGINGFACE_ENDPOINT=https://your-endpoint.com
+# Novita.ai settings
+NOVITA_API_KEY=your_novita_api_key_here
+# Model for text/code tasks (entity generation, HTML document creation)
+# NOVITA_MODEL=deepseek/deepseek-v3-0324
+# Model for vision tasks (document analysis, template matching)
+# NOVITA_VISION_MODEL=qwen/qwen3-vl-235b-a22b-instruct
 
 # General settings (apply to all providers)
 TEMPERATURE=0.7  # Optional, controls randomness (0.0-1.0)
@@ -510,7 +511,7 @@ You can switch providers in multiple ways:
 
 1. **Set default in .env file**:
    ```bash
-   AI_PROVIDER=huggingface  # or gemini
+   AI_PROVIDER=novita  # or gemini
    ```
 
 2. **Override at runtime** (for individual commands):
@@ -518,8 +519,8 @@ You can switch providers in multiple ways:
    # Force use of Gemini regardless of .env setting
    AI_PROVIDER=gemini python generate_entities.py -t "invoice" -e "amount,date" -c 10
 
-   # Use Hugging Face for a specific task
-   AI_PROVIDER=huggingface ./generate -t "contract" -e "parties,terms" -c 5
+   # Use Novita.ai for a specific task
+   AI_PROVIDER=novita ./generate -t "contract" -e "parties,terms" -c 5
    ```
 
 3. **Programmatically in code**:
@@ -527,7 +528,7 @@ You can switch providers in multiple ways:
    from ai_providers import get_ai_client
 
    # Use specific provider
-   client = get_ai_client(provider='huggingface')
+   client = get_ai_client(provider='novita')
    # or
    client = get_ai_client(provider='gemini')
    ```
@@ -540,11 +541,11 @@ Verify your provider configuration:
 # Test Gemini provider
 python check_providers.py --provider gemini --test-generation
 
-# Test Hugging Face provider
-python check_providers.py --provider huggingface --test-generation
+# Test Novita.ai provider
+python check_providers.py --provider novita --test-generation
 
 # Test vision capabilities (if supported by model)
-python check_providers.py --provider huggingface --test-vision
+python check_providers.py --provider novita --test-vision
 ```
 
 ### Provider Selection Guidelines
@@ -555,18 +556,18 @@ python check_providers.py --provider huggingface --test-vision
 - Consistent high-quality results
 - Simple setup with minimal configuration
 
-**Choose Hugging Face when you need:**
-- Access to specific open-source models
-- Flexibility to switch between different models
+**Choose Novita.ai when you need:**
+- Access to open-source models (DeepSeek, Qwen, etc.)
+- Separate text/code and vision models for optimal task performance
 - Cost-effective inference for large batches
 - Models with specialized capabilities (e.g., Qwen for Asian languages)
 
 ### Performance Notes
 
 - **Gemini**: Generally faster response times, excellent for real-time generation
-- **Qwen3-VL** (via HF): Strong multilingual support, particularly good with Asian languages and technical documents
-- **Llama models** (via HF): Good balance of speed and quality, widely supported
-- **API Rate Limits**: Both providers have rate limits; HF may require waiting between requests for some models
+- **DeepSeek V3** (via Novita.ai): Strong coding model, excellent for HTML document generation
+- **Qwen3-VL** (via Novita.ai): Strong multilingual vision support, particularly good with Asian languages and document analysis
+- **API Rate Limits**: Both providers have rate limits; adjust batch sizes accordingly
 
 ## Commands Reference
 
@@ -588,6 +589,8 @@ Complete pipeline that generates PDFs in one command.
 - `--pdf-converter`: Choose PDF engine (weasyprint/wkhtmltopdf/playwright/chrome)
 - `--keep-intermediates`: Keep entity JSON and HTML files
 - `-s, --start-index INTEGER`: Starting document number (default: 1)
+- `--distort`: Apply scan-like distortion effects to generated PDFs
+- `--distort-intensity`: Distortion intensity (low/medium/high, default: medium)
 
 ### analyze_document.py
 Analyze document images to extract structure and entities.
@@ -694,6 +697,38 @@ Convert HTML documents to PDF format.
 - `--keep-html`: Keep HTML files after conversion
 - `--pattern TEXT`: HTML file pattern (default: *.html)
 
+### distort_scan.py
+Apply realistic scan-like distortion effects to PDF files, making them appear as if they were scanned or photocopied.
+
+**Parameters:**
+- `-i, --input-dir PATH`: Directory containing PDF files to distort (required)
+- `-o, --output-dir PATH`: Output directory for distorted PDFs (default: same as input)
+- `-n, --intensity`: Intensity preset: low, medium, or high (default: medium)
+- `-d, --dpi INTEGER`: Render DPI (default: 200)
+- `--pattern TEXT`: PDF file pattern (default: *.pdf)
+- `--seed INTEGER`: Random seed for reproducible results
+
+**Effects applied:**
+- Slight rotation and perspective skew
+- Paper-like noise and grain
+- Brightness and contrast variation
+- Edge vignetting
+- Regional blur spots
+- Page wrinkles and creases
+
+**Usage:**
+```bash
+# Apply medium distortion to all PDFs in a directory
+python distort_scan.py -i output/
+
+# Apply high distortion with specific DPI
+python distort_scan.py -i output/ -n high -d 300
+
+# Or use via generate/clone pipelines
+./generate -t "invoice" -e "amount,date" -c 10 --distort --distort-intensity high
+./clone -i template.png -c 5 --distort
+```
+
 ## Regional Features
 
 ### Date Formats
@@ -733,6 +768,10 @@ Convert HTML documents to PDF format.
 # Generate from analyzed document
 python analyze_document.py -i existing_invoice.png -o analysis
 ./generate -a analysis/document_analysis.json -c 50
+
+# Generate with scan distortion effects (looks like scanned documents)
+./generate -t "business invoice" -e "customer name,amount,date" -c 10 --distort
+./generate -t "contract" -e "party1,party2,terms" -c 5 --distort --distort-intensity high
 ```
 
 ### Complete AI-Powered Workflow (Step-by-Step)
@@ -906,11 +945,12 @@ backgrounds/
 
 ```
 google-generativeai>=0.7.0  # For Gemini provider
-huggingface_hub>=0.23.0  # For Hugging Face provider
+openai>=1.0.0  # OpenAI-compatible client for Novita.ai provider
 jinja2>=3.1.0
 click>=8.1.0
 python-dotenv>=1.0.0
 Pillow>=10.0.0  # Image processing for document analysis
+PyMuPDF>=1.23.0  # PDF rendering for scan distortion effects
 
 # PDF conversion dependencies (optional)
 weasyprint>=60.0  # Recommended

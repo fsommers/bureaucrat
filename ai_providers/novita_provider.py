@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """
-Hugging Face AI provider implementation.
+Novita.ai provider implementation.
 
-This module implements the AIProvider interface for Hugging Face models
-using the Hugging Face Inference API.
+This module implements the AIProvider interface for Novita.ai models
+using the OpenAI-compatible chat completions API.
 """
 
 import json
@@ -26,81 +26,60 @@ from typing import Dict, List, Any, Optional
 from io import BytesIO
 import PIL.Image
 
-from huggingface_hub import InferenceClient
-from huggingface_hub.utils import HfHubHTTPError
+from openai import OpenAI, APIError
 
 from .base_provider import AIProvider, ProviderConfig
 from config import LANGUAGE_CODES
 
+NOVITA_BASE_URL = "https://api.novita.ai/openai"
 
-class HuggingFaceProvider(AIProvider):
+
+class NovitaProvider(AIProvider):
     """
-    Hugging Face AI provider implementation.
+    Novita.ai provider implementation.
 
-    Supports text generation and vision capabilities through Hugging Face models.
+    Uses the OpenAI-compatible chat completions API provided by Novita.ai.
     """
 
     def _validate_config(self) -> None:
-        """Validate Hugging Face-specific configuration."""
+        """Validate Novita-specific configuration."""
         if not self.config.api_key:
-            raise ValueError("HUGGINGFACE_API_KEY not found in configuration")
+            raise ValueError("NOVITA_API_KEY not found in configuration")
 
-        # Set default model if not specified
         if not self.config.model_name:
-            self.config.model_name = 'meta-llama/Meta-Llama-3-8B-Instruct'
+            self.config.model_name = 'deepseek/deepseek-v3-0324'
 
-        # Set default endpoint if not specified
-        if not self.config.endpoint_url:
-            self.config.endpoint_url = None  # Will use default HF endpoint
+        if not self.config.vision_model_name:
+            self.config.vision_model_name = 'qwen/qwen3-vl-235b-a22b-instruct'
 
     def _initialize_client(self) -> None:
-        """Initialize the Hugging Face client."""
-        # Create InferenceClient with API key
-        self.client = InferenceClient(
-            model=self.config.model_name,
-            token=self.config.api_key,
-            base_url=self.config.endpoint_url
+        """Initialize the OpenAI-compatible client for Novita."""
+        base_url = self.config.endpoint_url or NOVITA_BASE_URL
+        self.client = OpenAI(
+            api_key=self.config.api_key,
+            base_url=base_url,
         )
-
-        # Store model info for vision capability check
         self.is_vision_model = self._check_vision_capability()
 
-        # Determine if model requires conversational API
-        self.use_conversational = self._check_conversational_model()
-
     def _check_vision_capability(self) -> bool:
-        """Check if the model supports vision capabilities."""
-        # List of known vision-capable models (use lowercase for matching)
-        vision_models = [
-            'llava', 'idefics', 'vision', 'blip', 'clip', 'florence',
-            'llama-3.2-11b-vision', 'llama-3.2-90b-vision',
-            'qwen3-vl', 'qwen-vl', 'qwen2-vl'  # Qwen vision-language models
-        ]
-
-        if self.config.model_name:
-            model_lower = self.config.model_name.lower()
-            return any(vm in model_lower for vm in vision_models)
-        return False
-
-    def _check_conversational_model(self) -> bool:
-        """Check if the model requires conversational API instead of text-generation."""
-        # Models that require conversational API (use lowercase for matching)
-        conversational_models = [
-            'llama-3.2-11b-vision', 'llama-3.2-90b-vision',
-            'llama-3-8b-instruct', 'llama-3-70b-instruct',
-            'llama-2-', 'llama-3-',  # Most Llama models require conversational
-            'llava', 'idefics', 'mistral-7b-instruct',
-            'qwen3-vl', 'qwen-vl', 'qwen2-vl', 'qwen3-', 'qwen2-'  # Qwen models
-        ]
-
-        if self.config.model_name:
-            model_lower = self.config.model_name.lower()
-            return any(cm in model_lower for cm in conversational_models)
-        return False
+        """Check if a vision model is configured."""
+        return bool(self.config.vision_model_name)
 
     def supports_vision(self) -> bool:
         """Check if the provider supports vision capabilities."""
         return self.is_vision_model
+
+    def _chat(self, messages: List[Dict], max_tokens: int = None,
+              temperature: float = None, use_vision_model: bool = False) -> str:
+        """Send a chat completion request and return the response text."""
+        model = self.config.vision_model_name if use_vision_model else self.config.model_name
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=temperature if temperature is not None else self.config.temperature,
+        )
+        return response.choices[0].message.content
 
     def generate_bulk_entity_data(
         self,
@@ -109,22 +88,20 @@ class HuggingFaceProvider(AIProvider):
         count: int,
         language: str = 'en'
     ) -> List[Dict[str, Any]]:
-        """Generate bulk entity data using Hugging Face."""
-        # Validate language code
+        """Generate bulk entity data using Novita.ai."""
         if language not in LANGUAGE_CODES:
             raise ValueError(f"Unsupported language code: '{language}'. Supported codes: {', '.join(sorted(LANGUAGE_CODES.keys()))}")
 
         language_context = LANGUAGE_CODES[language]
         language_name = language_context.replace(' context', '')
 
-        # Generate entity data with retry logic
         max_batch_retries = 5
         entity_list = []
         remaining_count = count
 
         while remaining_count > 0 and max_batch_retries > 0:
             batch_retries = 3
-            batch_size = min(remaining_count, 5)  # Generate max 5 at a time
+            batch_size = min(remaining_count, 5)
 
             prompt = self._create_entity_generation_prompt(
                 document_type, entity_fields, batch_size, language_name, language
@@ -134,30 +111,12 @@ class HuggingFaceProvider(AIProvider):
 
             while batch_retries > 0 and not batch_success:
                 try:
-                    # Generate content using appropriate API
-                    if self.use_conversational:
-                        # Use conversational API for vision models
-                        messages = [{"role": "user", "content": prompt}]
-                        response = self.client.chat_completion(
-                            messages=messages,
-                            max_tokens=self.config.max_tokens,
-                            temperature=self.config.temperature,
-                        )
-                        # Extract text from chat response
-                        response = response.choices[0].message.content
-                    else:
-                        # Use text_generation for regular models
-                        response = self.client.text_generation(
-                            prompt,
-                            max_new_tokens=self.config.max_tokens,
-                            temperature=self.config.temperature,
-                            do_sample=True,
-                        )
+                    messages = [{"role": "user", "content": prompt}]
+                    response = self._chat(messages)
 
                     batch_entities = self._parse_entity_response(response, batch_size)
 
                     if len(batch_entities) == batch_size:
-                        # Add metadata to each entity record
                         for entity in batch_entities:
                             entity['_document_type'] = document_type
                             entity['_language'] = language
@@ -167,7 +126,6 @@ class HuggingFaceProvider(AIProvider):
                         print(f"✅ Generated batch of {len(batch_entities)} entities ({len(entity_list)}/{count} total)")
                         batch_success = True
                     elif len(batch_entities) > 0:
-                        # Accept partial results
                         actual_count = min(len(batch_entities), batch_size)
                         useful_entities = batch_entities[:actual_count]
 
@@ -186,8 +144,8 @@ class HuggingFaceProvider(AIProvider):
                 except json.JSONDecodeError as e:
                     print(f"❌ JSON Parse Error in batch: {e} (retries left: {batch_retries})")
                     batch_retries -= 1
-                except HfHubHTTPError as e:
-                    print(f"❌ Hugging Face API Error in batch: {e} (retries left: {batch_retries})")
+                except APIError as e:
+                    print(f"❌ Novita API Error in batch: {e} (retries left: {batch_retries})")
                     batch_retries -= 1
                 except Exception as e:
                     print(f"❌ API Error in batch: {e} (retries left: {batch_retries})")
@@ -197,7 +155,6 @@ class HuggingFaceProvider(AIProvider):
                 max_batch_retries -= 1
                 print(f"❌ Batch failed completely, reducing overall retries to {max_batch_retries}")
 
-        # Fill remaining slots if necessary
         if len(entity_list) < count:
             print(f"⚠️  Only generated {len(entity_list)}/{count} entities after retries")
             self._fill_remaining_entities(entity_list, entity_fields, document_type, language, count)
@@ -213,57 +170,26 @@ class HuggingFaceProvider(AIProvider):
         template_image_path: Optional[str] = None,
         instructions: Optional[str] = None
     ) -> str:
-        """Generate HTML document using Hugging Face."""
+        """Generate HTML document using Novita.ai."""
         if template_image_path and not self.is_vision_model:
             print("⚠️  Template image provided but model doesn't support vision. Ignoring template.")
             template_image_path = None
+
+        use_vision = template_image_path is not None
 
         prompt = self._create_document_generation_prompt(
             document_type, entity_data, language, template_image_path, instructions
         )
 
         try:
-            # Generate content using appropriate API
-            if self.use_conversational:
-                # Use conversational API for vision models
-                messages = [{"role": "user", "content": prompt}]
-
-                # Add image if provided and model supports vision
-                if template_image_path and self.is_vision_model:
-                    image = PIL.Image.open(template_image_path)
-                    # Convert image to base64
-                    buffered = BytesIO()
-                    image.save(buffered, format="PNG")
-                    image_base64 = base64.b64encode(buffered.getvalue()).decode()
-
-                    # Add image to message (format depends on model)
-                    # For now, we'll add it to the prompt text
-                    messages[0]["content"] = f"[Image provided]\n\n{prompt}"
-
-                response = self.client.chat_completion(
-                    messages=messages,
-                    max_tokens=self.config.max_tokens,
-                    temperature=self.config.temperature,
-                )
-                # Extract text from chat response
-                response = response.choices[0].message.content
-            else:
-                # Regular text generation for non-conversational models
-                response = self.client.text_generation(
-                    prompt,
-                    max_new_tokens=self.config.max_tokens,
-                    temperature=self.config.temperature,
-                    do_sample=True,
-                )
-
-            # Clean up HTML content
+            messages = [{"role": "user", "content": self._build_content(prompt, template_image_path)}]
+            response = self._chat(messages, use_vision_model=use_vision)
             return self._clean_html_content(response)
 
-        except HfHubHTTPError as e:
+        except APIError as e:
             if "safety" in str(e).lower() or "content" in str(e).lower():
                 print("⚠️  Content blocked by safety filters, retrying with simplified prompt...")
 
-                # Retry with simpler prompt
                 simplified_prompt = f"""
                 Create a simple HTML business document for: {document_type}
                 Language: {language}
@@ -271,32 +197,18 @@ class HuggingFaceProvider(AIProvider):
                 Keep content professional and appropriate.
                 """
 
-                if self.use_conversational:
-                    messages = [{"role": "user", "content": simplified_prompt}]
-                    response = self.client.chat_completion(
-                        messages=messages,
-                        max_tokens=self.config.max_tokens,
-                        temperature=self.config.temperature,
-                    )
-                    response = response.choices[0].message.content
-                else:
-                    response = self.client.text_generation(
-                        simplified_prompt,
-                        max_new_tokens=self.config.max_tokens,
-                        temperature=self.config.temperature,
-                        do_sample=True,
-                    )
-
+                messages = [{"role": "user", "content": simplified_prompt}]
+                response = self._chat(messages)
                 return self._clean_html_content(response)
             else:
                 raise
 
     def analyze_document_image(self, image_path: str) -> Dict[str, Any]:
-        """Analyze document image using Hugging Face vision capabilities."""
+        """Analyze document image using Novita.ai vision capabilities."""
         if not self.is_vision_model:
             raise NotImplementedError(
-                f"Model '{self.config.model_name}' does not support vision capabilities. "
-                "Please use a vision-capable model like 'meta-llama/Llama-3.2-11B-Vision-Instruct'."
+                "No vision model configured. "
+                "Set NOVITA_VISION_MODEL to a vision-capable model like 'qwen/qwen3-vl-235b-a22b-instruct'."
             )
 
         try:
@@ -307,37 +219,15 @@ class HuggingFaceProvider(AIProvider):
         prompt = self._create_analysis_prompt()
 
         try:
-            # Convert image to base64 for API
-            buffered = BytesIO()
-            image.save(buffered, format="PNG")
-            image_base64 = base64.b64encode(buffered.getvalue()).decode()
-
-            # Use appropriate API based on model type
-            if self.use_conversational:
-                messages = [{"role": "user", "content": prompt}]
-                response = self.client.chat_completion(
-                    messages=messages,
-                    max_tokens=1024,
-                    temperature=0.3,  # Lower temperature for more consistent extraction
-                )
-                response = response.choices[0].message.content
-            else:
-                response = self.client.text_generation(
-                    prompt,
-                    max_new_tokens=1024,
-                    temperature=0.3,  # Lower temperature for more consistent extraction
-                    do_sample=True,
-                )
+            content = self._build_content(prompt, image_path)
+            messages = [{"role": "user", "content": content}]
+            response = self._chat(messages, max_tokens=1024, temperature=0.3, use_vision_model=True)
 
             response_text = response.strip()
-
-            # Clean and parse response
             response_text = self._clean_json_response(response_text)
             analysis_result = json.loads(response_text)
 
-            # Validate required fields
             self._validate_analysis_result(analysis_result)
-
             return analysis_result
 
         except json.JSONDecodeError as e:
@@ -347,6 +237,21 @@ class HuggingFaceProvider(AIProvider):
             return self._create_error_analysis_result(str(e))
 
     # Private helper methods
+
+    def _build_content(self, text: str, image_path: Optional[str] = None):
+        """Build message content, optionally including an image for vision models."""
+        if not image_path or not self.is_vision_model:
+            return text
+
+        image = PIL.Image.open(image_path)
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        image_base64 = base64.b64encode(buffered.getvalue()).decode()
+
+        return [
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
+            {"type": "text", "text": text},
+        ]
 
     def _create_entity_generation_prompt(
         self, document_type: str, entity_fields: List[str],
@@ -452,7 +357,6 @@ Return ONLY the JSON object - no explanations, no markdown formatting, just the 
         """Parse entity generation response."""
         response_text = response_text.strip()
 
-        # Clean up response - remove markdown formatting if present
         if response_text.startswith('```json'):
             response_text = response_text[7:]
         if response_text.startswith('```'):
@@ -460,7 +364,6 @@ Return ONLY the JSON object - no explanations, no markdown formatting, just the 
         if response_text.endswith('```'):
             response_text = response_text[:-3]
 
-        # Find JSON array in response
         json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
         if json_match:
             response_text = json_match.group(0)
@@ -471,7 +374,6 @@ Return ONLY the JSON object - no explanations, no markdown formatting, just the 
             data = json.loads(response_text)
             return data if isinstance(data, list) else [data]
         except json.JSONDecodeError:
-            # Try to extract JSON objects manually
             objects = []
             for match in re.finditer(r'\{[^{}]*\}', response_text):
                 try:
@@ -483,7 +385,6 @@ Return ONLY the JSON object - no explanations, no markdown formatting, just the 
 
     def _clean_html_content(self, html_content: str) -> str:
         """Clean HTML content from markdown formatting."""
-        # Remove markdown code blocks
         if html_content.startswith('```html'):
             html_content = html_content[7:]
         if html_content.startswith('```'):
@@ -491,12 +392,10 @@ Return ONLY the JSON object - no explanations, no markdown formatting, just the 
         if html_content.endswith('```'):
             html_content = html_content[:-3]
 
-        # Find HTML content
         html_match = re.search(r'<!DOCTYPE.*?</html>', html_content, re.DOTALL | re.IGNORECASE)
         if html_match:
             return html_match.group(0).strip()
 
-        # Try to find just the HTML tag content
         html_match = re.search(r'<html.*?</html>', html_content, re.DOTALL | re.IGNORECASE)
         if html_match:
             return f"<!DOCTYPE html>\n{html_match.group(0).strip()}"
@@ -512,7 +411,6 @@ Return ONLY the JSON object - no explanations, no markdown formatting, just the 
         if response_text.endswith('```'):
             response_text = response_text[:-3]
 
-        # Try to find JSON object in response
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if json_match:
             response_text = json_match.group(0)

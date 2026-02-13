@@ -1,9 +1,10 @@
 google-generativeai>=0.7.0
-huggingface_hub>=0.23.0  # Hugging Face Inference API client
+openai>=1.0.0  # OpenAI-compatible client for Novita.ai
 jinja2>=3.1.0
 click>=8.1.0
 python-dotenv>=1.0.0
 Pillow>=10.0.0  # Image processing for document analysis
+PyMuPDF>=1.23.0  # PDF rendering for scan distortion effects
 
 # PDF conversion dependencies (optional - install based on preferred converter)
 weasyprint>=60.0  # Recommended: Pure Python PDF converter

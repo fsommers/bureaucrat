@@ -35,7 +35,7 @@ class ProviderFactory:
         Register a new AI provider.
 
         Args:
-            name: Name of the provider (e.g., "gemini", "huggingface")
+            name: Name of the provider (e.g., "gemini", "novita")
             provider_class: The provider class that inherits from AIProvider
         """
         cls._providers[name.lower()] = provider_class
@@ -78,6 +78,7 @@ class ProviderFactory:
         config = ProviderConfig(
             api_key=api_key,
             model_name=model_name,
+            vision_model_name=kwargs.get('vision_model_name'),
             endpoint_url=kwargs.get('endpoint_url'),
             temperature=kwargs.get('temperature', 0.7),
             max_tokens=kwargs.get('max_tokens', 8192),
@@ -112,15 +113,16 @@ class ProviderFactory:
             ValueError: If configuration is invalid
         """
         provider_name = config.get('AI_PROVIDER', 'gemini')
+        vision_model_name = None
 
         # Get provider-specific configuration
         if provider_name.lower() == 'gemini':
             api_key = config.get('GEMINI_API_KEY')
             model_name = config.get('GEMINI_MODEL', 'gemini-2.5-flash')
-        elif provider_name.lower() == 'huggingface':
-            api_key = config.get('HUGGINGFACE_API_KEY')
-            model_name = config.get('HUGGINGFACE_MODEL')
-            endpoint_url = config.get('HUGGINGFACE_ENDPOINT')
+        elif provider_name.lower() == 'novita':
+            api_key = config.get('NOVITA_API_KEY')
+            model_name = config.get('NOVITA_MODEL')
+            vision_model_name = config.get('NOVITA_VISION_MODEL')
         else:
             raise ValueError(f"Unknown provider: {provider_name}")
 
@@ -131,6 +133,7 @@ class ProviderFactory:
             provider_name=provider_name,
             api_key=api_key,
             model_name=model_name,
+            vision_model_name=vision_model_name,
             endpoint_url=config.get(f'{provider_name.upper()}_ENDPOINT'),
             temperature=config.get('TEMPERATURE', 0.7),
             max_tokens=config.get('MAX_TOKENS', 8192)
@@ -163,9 +166,9 @@ def get_ai_client(provider: Optional[str] = None) -> AIProvider:
         'AI_PROVIDER': provider,
         'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY'),
         'GEMINI_MODEL': os.getenv('GEMINI_MODEL', 'gemini-2.5-flash'),
-        'HUGGINGFACE_API_KEY': os.getenv('HUGGINGFACE_API_KEY'),
-        'HUGGINGFACE_MODEL': os.getenv('HUGGINGFACE_MODEL'),
-        'HUGGINGFACE_ENDPOINT': os.getenv('HUGGINGFACE_ENDPOINT'),
+        'NOVITA_API_KEY': os.getenv('NOVITA_API_KEY'),
+        'NOVITA_MODEL': os.getenv('NOVITA_MODEL'),
+        'NOVITA_VISION_MODEL': os.getenv('NOVITA_VISION_MODEL'),
         'TEMPERATURE': float(os.getenv('TEMPERATURE', '0.7')),
         'MAX_TOKENS': int(os.getenv('MAX_TOKENS', '8192'))
     }
