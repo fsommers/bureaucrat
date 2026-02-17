@@ -259,6 +259,7 @@ CRITICAL: Return ONLY a JSON array with EXACTLY {batch_size} objects, no extra t
         - ANALYZE the template image carefully and replicate the structure
         - NEVER use any personal information from the template image
         - Only replicate the LAYOUT, STRUCTURE, and VISUAL DESIGN
+        - The resulting document MUST fit on exactly one page. Do not allow content to overflow to a second page. Use compact spacing, smaller font sizes, or abbreviate content if needed to ensure everything fits within a single page.
         """
 
         additional_instructions = ""
