@@ -147,6 +147,18 @@ def shorten_filename(filename, max_length=16):
         # No ending number, just truncate
         return filename[:max_length]
 
+def unique_pdf_path(output_dir, shortened_name):
+    """Return a PDF path in output_dir that won't overwrite an existing file."""
+    pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
+    if not os.path.exists(pdf_path):
+        return pdf_path
+    counter = 2
+    while True:
+        candidate = os.path.join(output_dir, f"{shortened_name}_v{counter}.pdf")
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
 def convert_with_weasyprint(html_files, output_dir, paper_size):
     """Convert HTML files to PDF using WeasyPrint"""
     try:
@@ -162,8 +174,8 @@ def convert_with_weasyprint(html_files, output_dir, paper_size):
             # Generate PDF filename
             html_name = Path(html_file).stem
             shortened_name = shorten_filename(html_name)
-            pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
-            
+            pdf_path = unique_pdf_path(output_dir, shortened_name)
+
             # Convert to PDF with proper encoding and font support
             html_doc = weasyprint.HTML(filename=html_file, encoding='utf-8')
             
@@ -219,8 +231,8 @@ def convert_with_wkhtmltopdf(html_files, output_dir, paper_size):
             # Generate PDF filename
             html_name = Path(html_file).stem
             shortened_name = shorten_filename(html_name)
-            pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
-            
+            pdf_path = unique_pdf_path(output_dir, shortened_name)
+
             # Build command with UTF-8 encoding support and zero margins
             cmd = [
                 'wkhtmltopdf',
@@ -278,8 +290,8 @@ def convert_with_playwright(html_files, output_dir, paper_size):
                 # Generate PDF filename
                 html_name = Path(html_file).stem
                 shortened_name = shorten_filename(html_name)
-                pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
-                
+                pdf_path = unique_pdf_path(output_dir, shortened_name)
+
                 # Load HTML file with proper encoding
                 with open(html_file, 'r', encoding='utf-8') as f:
                     html_content = f.read()
@@ -343,8 +355,8 @@ def convert_with_chrome(html_files, output_dir, paper_size):
             # Generate PDF filename
             html_name = Path(html_file).stem
             shortened_name = shorten_filename(html_name)
-            pdf_path = os.path.join(output_dir, f"{shortened_name}.pdf")
-            
+            pdf_path = unique_pdf_path(output_dir, shortened_name)
+
             # Build command
             cmd = [
                 chrome_exe,
