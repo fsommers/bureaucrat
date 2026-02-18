@@ -221,7 +221,7 @@ class NovitaProvider(AIProvider):
         try:
             content = self._build_content(prompt, image_path)
             messages = [{"role": "user", "content": content}]
-            response = self._chat(messages, max_tokens=1024, temperature=0.3, use_vision_model=True)
+            response = self._chat(messages, max_tokens=4096, temperature=0.3, use_vision_model=True)
 
             response_text = response.strip()
             response_text = self._clean_json_response(response_text)
